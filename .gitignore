@@ -1,0 +1,4 @@
+*.tmp
+/pcb/*.bak
+/pcb/*.kicad_pcb-bak
+/pcb/*.net
