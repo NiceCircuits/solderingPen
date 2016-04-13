@@ -711,45 +711,45 @@ $EndComp
 $Comp
 L R_Network_4 RN1
 U 1 1 570DBDC3
-P 4200 3450
-F 0 "RN1" H 4200 3530 60  0000 C CNN
-F 1 "220R" H 4200 3450 40  0000 C CNN
-F 2 "4x0603_N" H 4200 3390 40  0001 C CNN
-F 3 "" H 4200 3450 60  0000 C CNN
-	1    4200 3450
-	1    0    0    -1  
-$EndComp
-$Comp
-L R_Network_4 RN1
-U 2 1 570DC62A
-P 4200 3650
-F 0 "RN1" H 4200 3730 60  0000 C CNN
-F 1 "220R" H 4200 3650 40  0000 C CNN
-F 2 "4x0603_N" H 4200 3590 40  0001 C CNN
-F 3 "" H 4200 3650 60  0000 C CNN
-	2    4200 3650
-	1    0    0    -1  
-$EndComp
-$Comp
-L R_Network_4 RN1
-U 3 1 570DC6AA
-P 4200 3850
-F 0 "RN1" H 4200 3930 60  0000 C CNN
-F 1 "220R" H 4200 3850 40  0000 C CNN
-F 2 "4x0603_N" H 4200 3790 40  0001 C CNN
-F 3 "" H 4200 3850 60  0000 C CNN
-	3    4200 3850
-	1    0    0    -1  
-$EndComp
-$Comp
-L R_Network_4 RN1
-U 4 1 570DC72D
 P 4200 4050
 F 0 "RN1" H 4200 4130 60  0000 C CNN
 F 1 "220R" H 4200 4050 40  0000 C CNN
 F 2 "4x0603_N" H 4200 3990 40  0001 C CNN
 F 3 "" H 4200 4050 60  0000 C CNN
-	4    4200 4050
+	1    4200 4050
+	1    0    0    -1  
+$EndComp
+$Comp
+L R_Network_4 RN1
+U 2 1 570DC62A
+P 4200 3850
+F 0 "RN1" H 4200 3930 60  0000 C CNN
+F 1 "220R" H 4200 3850 40  0000 C CNN
+F 2 "4x0603_N" H 4200 3790 40  0001 C CNN
+F 3 "" H 4200 3850 60  0000 C CNN
+	2    4200 3850
+	1    0    0    -1  
+$EndComp
+$Comp
+L R_Network_4 RN1
+U 3 1 570DC6AA
+P 4200 3650
+F 0 "RN1" H 4200 3730 60  0000 C CNN
+F 1 "220R" H 4200 3650 40  0000 C CNN
+F 2 "4x0603_N" H 4200 3590 40  0001 C CNN
+F 3 "" H 4200 3650 60  0000 C CNN
+	3    4200 3650
+	1    0    0    -1  
+$EndComp
+$Comp
+L R_Network_4 RN1
+U 4 1 570DC72D
+P 4200 3450
+F 0 "RN1" H 4200 3530 60  0000 C CNN
+F 1 "220R" H 4200 3450 40  0000 C CNN
+F 2 "4x0603_N" H 4200 3390 40  0001 C CNN
+F 3 "" H 4200 3450 60  0000 C CNN
+	4    4200 3450
 	1    0    0    -1  
 $EndComp
 Text GLabel 5700 5900 2    55   Output ~ 0
@@ -764,9 +764,9 @@ Text Label 4500 3650 0    55   ~ 0
 led_G
 Text Label 4550 3850 0    55   ~ 0
 led_B
-Text GLabel 2200 6400 0    55   BiDi ~ 0
+Text GLabel 5700 6200 2    55   BiDi ~ 0
 SDA
-Text GLabel 2200 6500 0    55   Output ~ 0
+Text GLabel 5700 6100 2    55   Output ~ 0
 SCL
 Text Label 2050 5400 0    55   ~ 0
 boot0
@@ -810,7 +810,7 @@ F 3 "" H 10350 1650 60  0000 C CNN
 $EndComp
 Text GLabel 2150 3700 2    55   Output ~ 0
 potentiometer_sig
-Text GLabel 5700 5300 2    55   Input ~ 0
+Text GLabel 5700 5800 2    55   Input ~ 0
 potentiometer_sig
 Wire Wire Line
 	1000 5400 2750 5400
@@ -1009,17 +1009,9 @@ Wire Wire Line
 Wire Wire Line
 	5150 5900 5700 5900
 Wire Wire Line
-	2750 6300 2550 6300
+	2750 6300 2450 6300
 Wire Wire Line
-	2550 6300 2550 6500
-Wire Wire Line
-	2550 6500 2200 6500
-Wire Wire Line
-	2200 6400 2450 6400
-Wire Wire Line
-	2450 6400 2450 6200
-Wire Wire Line
-	2450 6200 2750 6200
+	2350 6200 2750 6200
 Wire Wire Line
 	9600 1850 10650 1850
 Wire Wire Line
@@ -1043,22 +1035,18 @@ Wire Wire Line
 Wire Wire Line
 	5150 5400 5700 5400
 Wire Wire Line
-	5150 5500 5500 5500
-Wire Wire Line
-	5150 5600 5500 5600
-Wire Wire Line
 	5150 5700 5700 5700
 Wire Wire Line
 	5150 5800 5700 5800
 Text GLabel 5700 5400 2    55   Input ~ 0
 driver_fb_sig
-Text GLabel 5700 5700 2    55   Input ~ 0
+Text GLabel 5700 5300 2    55   Input ~ 0
 sensor_sig
-Text GLabel 5700 5800 2    55   Input ~ 0
+Text GLabel 5700 5600 2    55   Input ~ 0
 vin_sense_sig
-Text GLabel 5700 6100 2    55   Output ~ 0
+Text GLabel 5700 5700 2    55   Output ~ 0
 driver_cmd
-Text GLabel 5700 6200 2    55   Output ~ 0
+Text GLabel 5700 5500 2    55   Output ~ 0
 sensor_pullup_cmd
 Wire Wire Line
 	5700 6200 5150 6200
@@ -1067,28 +1055,28 @@ Wire Wire Line
 $Comp
 L Testpoint TP6
 U 1 1 570E620A
-P 5500 5600
-F 0 "TP6" V 5500 5750 60  0000 L CNN
-F 1 "NC2" V 5500 6000 60  0001 L CNN
-F 2 "pnConnector:TP_1mm" H 5450 5520 60  0001 C CNN
-F 3 "" H 5500 5650 60  0000 C CNN
-	1    5500 5600
-	0    1    1    0   
+P 2200 6500
+F 0 "TP6" V 2200 6650 60  0000 L CNN
+F 1 "NC2" V 2200 6900 60  0001 L CNN
+F 2 "pnConnector:TP_1mm" H 2150 6420 60  0001 C CNN
+F 3 "" H 2200 6550 60  0000 C CNN
+	1    2200 6500
+	0    -1   1    0   
 $EndComp
 $Comp
 L Testpoint TP5
 U 1 1 570E62B5
-P 5500 5500
-F 0 "TP5" V 5500 5650 60  0000 L CNN
-F 1 "NC1" V 5500 5900 60  0001 L CNN
-F 2 "pnConnector:TP_1mm" H 5450 5420 60  0001 C CNN
-F 3 "" H 5500 5550 60  0000 C CNN
-	1    5500 5500
-	0    1    1    0   
+P 2200 6400
+F 0 "TP5" V 2200 6550 60  0000 L CNN
+F 1 "NC1" V 2200 6800 60  0001 L CNN
+F 2 "pnConnector:TP_1mm" H 2150 6320 60  0001 C CNN
+F 3 "" H 2200 6450 60  0000 C CNN
+	1    2200 6400
+	0    -1   1    0   
 $EndComp
-Text Label 5250 5500 0    55   ~ 0
+Text Label 2500 6200 0    55   ~ 0
 NC1
-Text Label 5250 5600 0    55   ~ 0
+Text Label 2500 6300 0    55   ~ 0
 NC2
 $Comp
 L C C14
@@ -1370,6 +1358,125 @@ F 1 "GND" H 9950 3400 50  0000 C CNN
 F 2 "" H 9950 3550 60  0000 C CNN
 F 3 "" H 9950 3550 60  0000 C CNN
 	1    9950 3550
+	-1   0    0    -1  
+$EndComp
+$Comp
+L C C18
+U 1 1 570F5822
+P 7750 5850
+F 0 "C18" H 7770 5950 60  0000 L CNN
+F 1 "100n" H 7770 5750 40  0000 L CNN
+F 2 "0402_M" H 7770 5690 40  0001 L CNN
+F 3 "" H 7750 5850 60  0000 C CNN
+	1    7750 5850
+	1    0    0    -1  
+$EndComp
+$Comp
+L +3.3V #PWR040
+U 1 1 570F5D6F
+P 7750 5750
+F 0 "#PWR040" H 7750 5600 50  0001 C CNN
+F 1 "+3.3V" H 7750 5890 50  0000 C CNN
+F 2 "" H 7750 5750 60  0000 C CNN
+F 3 "" H 7750 5750 60  0000 C CNN
+	1    7750 5750
+	1    0    0    -1  
+$EndComp
+$Comp
+L GND #PWR041
+U 1 1 570F5FAB
+P 7750 5950
+F 0 "#PWR041" H 7750 5700 50  0001 C CNN
+F 1 "GND" H 7750 5800 50  0000 C CNN
+F 2 "" H 7750 5950 60  0000 C CNN
+F 3 "" H 7750 5950 60  0000 C CNN
+	1    7750 5950
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	2450 6300 2450 6500
+Wire Wire Line
+	2350 6400 2350 6200
+Wire Wire Line
+	2450 6500 2200 6500
+Wire Wire Line
+	2200 6400 2350 6400
+Wire Wire Line
+	5150 5500 5700 5500
+Wire Wire Line
+	5150 5600 5700 5600
+Text Notes 4100 5350 0    60   Italic 0
+ADC_IN0
+Text Notes 4100 5450 0    60   Italic 0
+ADC_IN1
+Text Notes 4100 5550 0    60   Italic 0
+ADC_IN2
+Text Notes 4100 5650 0    60   Italic 0
+ADC_IN3
+Text Notes 4100 5850 0    60   Italic 0
+ADC_IN5
+Text Notes 4100 5750 0    60   Italic 0
+TIM14_CH1
+Text Notes 4100 5950 0    60   Italic 0
+TIM3_CH1
+Text Notes 4100 6050 0    60   Italic 0
+TIM3_CH2
+Text Notes 4100 6550 0    60   Italic 0
+TIM3_CH4
+Text Notes 3900 6250 0    60   Italic 0
+I2C1_SDA
+Text Notes 3900 6150 0    60   Italic 0
+I2C1_SCL
+$Comp
+L Testpoint TP8
+U 1 1 570FE8B4
+P 5500 6650
+F 0 "TP8" V 5500 6800 60  0000 L CNN
+F 1 "GND" V 5500 7050 60  0001 L CNN
+F 2 "pnConnector:TP_1mm" H 5450 6570 60  0001 C CNN
+F 3 "" H 5500 6700 60  0000 C CNN
+	1    5500 6650
+	0    1    -1   0   
+$EndComp
+Wire Wire Line
+	5500 6650 5400 6650
+Wire Wire Line
+	5400 6650 5400 6750
+$Comp
+L GND #PWR042
+U 1 1 570FEB3F
+P 5400 6750
+F 0 "#PWR042" H 5400 6500 50  0001 C CNN
+F 1 "GND" H 5400 6600 50  0000 C CNN
+F 2 "" H 5400 6750 60  0000 C CNN
+F 3 "" H 5400 6750 60  0000 C CNN
+	1    5400 6750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Testpoint TP7
+U 1 1 570FF0CB
+P 7350 5850
+F 0 "TP7" V 7350 6000 60  0000 L CNN
+F 1 "GND" V 7350 6250 60  0001 L CNN
+F 2 "pnConnector:TP_1mm" H 7300 5770 60  0001 C CNN
+F 3 "" H 7350 5900 60  0000 C CNN
+	1    7350 5850
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	7350 5850 7450 5850
+Wire Wire Line
+	7450 5850 7450 5950
+$Comp
+L GND #PWR043
+U 1 1 570FF0D3
+P 7450 5950
+F 0 "#PWR043" H 7450 5700 50  0001 C CNN
+F 1 "GND" H 7450 5800 50  0000 C CNN
+F 2 "" H 7450 5950 60  0000 C CNN
+F 3 "" H 7450 5950 60  0000 C CNN
+	1    7450 5950
 	-1   0    0    -1  
 $EndComp
 $EndSCHEMATC
