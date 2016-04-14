@@ -1,4 +1,4 @@
-update=2016-04-12 19:58:33
+update=2016-04-14 23:00:37
 version=1
 last_client=kicad
 [pcbnew]
@@ -23,8 +23,6 @@ ModuleOutlineThickness=0.150000000000
 [cvpcb]
 version=1
 NetIExt=net
-[general]
-version=1
 [eeschema]
 version=1
 LibDir=D:/test/kicadLib
@@ -46,3 +44,5 @@ LibName14=niceOpamps
 LibName15=D:/Lib/kicad/pnRC
 LibName16=D:/Lib/kicad/pnTransistor
 LibName17=niceSensors
+[general]
+version=1
