@@ -2,8 +2,8 @@
 <targetDefinitions xmlns="http://openstm32.org/stm32TargetDefinitions" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://openstm32.org/stm32TargetDefinitions stm32TargetDefinitions.xsd">
   <board id="solderingPen">
     <name>solderingPen</name>
-    <mcuId>STM32F070F6Px</mcuId>  <!-- mcu-->
+    <mcuId>stm32f070f6px</mcuId>
     <dbgIF>SWD</dbgIF>
-    <dbgDEV />
+    <dbgDEV>ST-LinkV2</dbgDEV>
   </board>
 </targetDefinitions>

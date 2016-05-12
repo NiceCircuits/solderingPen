@@ -42,8 +42,6 @@
 #define vin_sense_sig_GPIO_Port GPIOA
 #define driver_fb_sig_Pin GPIO_PIN_1
 #define driver_fb_sig_GPIO_Port GPIOA
-#define sensor_pullup_cmd_Pin GPIO_PIN_2
-#define sensor_pullup_cmd_GPIO_Port GPIOA
 #define sensor_sig_Pin GPIO_PIN_3
 #define sensor_sig_GPIO_Port GPIOA
 #define driver_cmd_Pin GPIO_PIN_4
