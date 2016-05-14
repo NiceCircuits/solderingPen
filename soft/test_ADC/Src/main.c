@@ -36,6 +36,7 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f070x6.h"
 #include "debug.h"
+#include "config.h"
 
 /* USER CODE END Includes */
 
@@ -76,14 +77,15 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+#define ADC_COUNT 1500
+uint16_t adcBuffer[ADC_COUNT];
 
 /* USER CODE END 0 */
 
 int main(void) {
 
 	/* USER CODE BEGIN 1 */
-	const uint32_t adcCount = 1000;
-	uint32_t adcBuffer[adcCount];
+	uint32_t i;
 	/* USER CODE END 1 */
 
 	/* MCU Configuration----------------------------------------------------------*/
@@ -97,25 +99,30 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_DMA_Init();
-	MX_ADC_Init();
 	MX_I2C1_Init();
 	MX_TIM3_Init();
 	MX_TIM14_Init();
 	MX_USART2_UART_Init();
+	MX_ADC_Init();
 	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
-	debugPrint("start\r\n");
+	HAL_TIM_Base_Start(&htim14);
+	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
+	htim14.Instance->CCR1 = 35000;
 	HAL_TIM_Base_Start(&htim1);
+	HAL_ADC_Start_DMA(&hadc, adcBuffer, ADC_COUNT);
+	while (!(HAL_ADC_GetState(&hadc) & HAL_ADC_STATE_REG_EOC)) {
+	}
+	HAL_ADC_Stop_DMA(&hadc);
+	htim14.Instance->CCR1 = 0;
+	for (i = 0; i < ADC_COUNT; i++) {
+		debugPrint("%u\r\n", adcBuffer[i]);
+	}
 	/* USER CODE END 2 */
-	HAL_ADC_Start_DMA(&hadc, adcBuffer, adcCount);
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-		/* USER CODE END WHILE */
-		/* USER CODE BEGIN 3 */
-		debugPrint("%u ", HAL_ADC_GetState(&hadc));
-
 	}
 	/* USER CODE END 3 */
 
@@ -198,6 +205,8 @@ void MX_ADC_Init(void) {
 	/**Configure for the selected ADC regular channel to be converted.
 	 */
 	sConfig.Channel = ADC_CHANNEL_5;
+	HAL_ADC_ConfigChannel(&hadc, &sConfig);
+	sConfig.Channel = ADC_CHANNEL_3;
 	HAL_ADC_ConfigChannel(&hadc, &sConfig);
 
 }
