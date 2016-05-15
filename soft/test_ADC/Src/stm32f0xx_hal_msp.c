@@ -79,7 +79,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PA1     ------> ADC_IN1
     PA5     ------> ADC_IN5 
     */
-    GPIO_InitStruct.Pin = vin_sense_sig_Pin|driver_fb_sig_Pin|potentiometer_sig_Pin|GPIO_PIN_3;
+    GPIO_InitStruct.Pin = vin_sense_sig_Pin|driver_fb_sig_Pin|potentiometer_sig_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -347,7 +347,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     PA2     ------> USART2_TX
     PA3     ------> USART2_RX 
     */
-    GPIO_InitStruct.Pin = debug_TX_Pin;
+    GPIO_InitStruct.Pin = debug_TX_Pin|debug_RX_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;

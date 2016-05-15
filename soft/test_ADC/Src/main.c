@@ -86,6 +86,8 @@ int main(void) {
 
 	/* USER CODE BEGIN 1 */
 	uint32_t i;
+	GPIO_InitTypeDef GPIO_InitStruct;
+	ADC_ChannelConfTypeDef sConfig;
 	/* USER CODE END 1 */
 
 	/* MCU Configuration----------------------------------------------------------*/
@@ -99,14 +101,24 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_DMA_Init();
+	MX_ADC_Init();
 	MX_I2C1_Init();
 	MX_TIM3_Init();
 	MX_TIM14_Init();
 	MX_USART2_UART_Init();
-	MX_ADC_Init();
 	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
+	// Configure analog input. Stm32Cube forces use of RX pin if UART is used.
+	GPIO_InitStruct.Pin = debug_RX_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	sConfig.Channel = ADC_CHANNEL_3;
+	sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+	sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+	HAL_ADC_ConfigChannel(&hadc, &sConfig);
+
 	HAL_TIM_Base_Start(&htim14);
 	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
 	htim14.Instance->CCR1 = 35000;
@@ -120,9 +132,14 @@ int main(void) {
 		debugPrint("%u\r\n", adcBuffer[i]);
 	}
 	/* USER CODE END 2 */
+
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
+		/* USER CODE END WHILE */
+
+		/* USER CODE BEGIN 3 */
+
 	}
 	/* USER CODE END 3 */
 
@@ -205,8 +222,6 @@ void MX_ADC_Init(void) {
 	/**Configure for the selected ADC regular channel to be converted.
 	 */
 	sConfig.Channel = ADC_CHANNEL_5;
-	HAL_ADC_ConfigChannel(&hadc, &sConfig);
-	sConfig.Channel = ADC_CHANNEL_3;
 	HAL_ADC_ConfigChannel(&hadc, &sConfig);
 
 }
