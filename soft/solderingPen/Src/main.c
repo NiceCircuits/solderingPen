@@ -35,6 +35,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "stm32f070x6.h"
+#include "debug.h"
 
 /* USER CODE END Includes */
 
@@ -121,6 +122,7 @@ int main(void) {
 		/* USER CODE BEGIN 3 */
 		//HAL_GPIO_TogglePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin);
 		HAL_Delay(10);
+		debugPrint("test %u\r\n", x);
 		//htim14.Instance->CCR1 = x;
 		htim3.Instance->CCR1 = x - 500;
 		x++;
@@ -202,11 +204,6 @@ void MX_ADC_Init(void) {
 	/**Configure for the selected ADC regular channel to be converted.
 	 */
 	sConfig.Channel = ADC_CHANNEL_1;
-	HAL_ADC_ConfigChannel(&hadc, &sConfig);
-
-	/**Configure for the selected ADC regular channel to be converted.
-	 */
-	sConfig.Channel = ADC_CHANNEL_3;
 	HAL_ADC_ConfigChannel(&hadc, &sConfig);
 
 	/**Configure for the selected ADC regular channel to be converted.
@@ -299,12 +296,12 @@ void MX_USART2_UART_Init(void) {
 	huart2.Init.WordLength = UART_WORDLENGTH_8B;
 	huart2.Init.StopBits = UART_STOPBITS_1;
 	huart2.Init.Parity = UART_PARITY_NONE;
-	huart2.Init.Mode = UART_MODE_TX;
+	huart2.Init.Mode = UART_MODE_TX_RX;
 	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
 	huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
 	huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-	HAL_HalfDuplex_Init(&huart2);
+	HAL_UART_Init(&huart2);
 
 }
 

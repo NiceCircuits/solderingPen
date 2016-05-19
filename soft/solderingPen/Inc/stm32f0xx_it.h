@@ -50,7 +50,6 @@ void HardFault_Handler(void);
 void SysTick_Handler(void);
 void DMA1_Channel1_IRQHandler(void);
 void DMA1_Channel4_5_IRQHandler(void);
-void TIM14_IRQHandler(void);
 
 #ifdef __cplusplus
 }
