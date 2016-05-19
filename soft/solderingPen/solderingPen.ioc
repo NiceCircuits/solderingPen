@@ -79,6 +79,7 @@ NVIC.DMA1_Channel4_5_IRQn=true\:0\:0\:false\:false\:true
 NVIC.HardFault_IRQn=true\:0\:0\:false\:false\:true
 NVIC.NonMaskableInt_IRQn=true\:0\:0\:false\:false\:true
 NVIC.SysTick_IRQn=true\:0\:0\:false\:false\:true
+NVIC.TIM14_IRQn=true\:0\:0\:false\:false\:true
 PA0.GPIOParameters=GPIO_Label
 PA0.GPIO_Label=vin_sense_sig
 PA0.Mode=IN0

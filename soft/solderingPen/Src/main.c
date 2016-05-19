@@ -36,6 +36,8 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f070x6.h"
 #include "debug.h"
+#include "heater.h"
+#include "led.h"
 
 /* USER CODE END Includes */
 
@@ -100,18 +102,18 @@ int main(void) {
 	MX_USART2_UART_Init();
 
 	/* USER CODE BEGIN 2 */
-	HAL_TIM_Base_Start(&htim3);
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
-	HAL_TIM_Base_Start(&htim14);
-	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
-	//htim14.Instance->CCR1 = 500;
+	// Debug Independent Watchdog stopped when Core is halted
+	DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_IWDG_STOP
+			| DBGMCU_APB1_FZ_DBG_WWDG_STOP;
 
-	uint32_t x = 500;
-	const uint32_t max = 2000;
-	const uint16_t adcBuffer[1000];
-	HAL_ADC_Start_DMA(&hadc, &adcBuffer, 1000);
+	heaterStartPwm();
+	ledStartPwm();
+	heaterCmd(2000);
+
+//	uint32_t x = 500;
+//	const uint32_t max = 2000;
+//	const uint16_t adcBuffer[1000];
+//	HAL_ADC_Start_DMA(&hadc, &adcBuffer, 1000);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -121,13 +123,21 @@ int main(void) {
 
 		/* USER CODE BEGIN 3 */
 		//HAL_GPIO_TogglePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin);
-		HAL_Delay(10);
-		debugPrint("test %u\r\n", x);
+		//HAL_Delay(10);
+		//debugPrint("test %u\r\n", x);
 		//htim14.Instance->CCR1 = x;
-		htim3.Instance->CCR1 = x - 500;
-		x++;
-		if (x > max)
-			x = 500;
+		if (heaterPwmRisingEdgeFlag) {
+			heaterPwmRisingEdgeFlag = 0;
+			ledCmd(0, 0, 5000);
+		}
+		if (heaterPwmFallingEdgeFlag) {
+			heaterPwmFallingEdgeFlag = 0;
+			ledCmd(0, 0, 0);
+		}
+//		htim3.Instance->CCR1 = x - 500;
+//		x++;
+//		if (x > max)
+//			x = 500;
 	}
 	/* USER CODE END 3 */
 
@@ -242,7 +252,7 @@ void MX_TIM3_Init(void) {
 	htim3.Instance = TIM3;
 	htim3.Init.Prescaler = 0;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 48000;
+	htim3.Init.Period = 65535;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	HAL_TIM_PWM_Init(&htim3);
 
@@ -270,9 +280,9 @@ void MX_TIM14_Init(void) {
 	TIM_OC_InitTypeDef sConfigOC;
 
 	htim14.Instance = TIM14;
-	htim14.Init.Prescaler = 99;
+	htim14.Init.Prescaler = 4799;
 	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim14.Init.Period = 48000;
+	htim14.Init.Period = 9999;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	HAL_TIM_Base_Init(&htim14);
 
