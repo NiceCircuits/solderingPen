@@ -1410,7 +1410,7 @@ ADC_IN0
 Text Notes 4200 5850 0    60   Italic 0
 ADC_IN1
 Text Notes 4200 5950 0    60   Italic 0
-ADC_IN2
+(ADC_IN2)
 Text Notes 4200 6050 0    60   Italic 0
 ADC_IN3
 Text Notes 4200 6250 0    60   Italic 0
