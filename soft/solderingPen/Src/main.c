@@ -270,7 +270,7 @@ void MX_TIM14_Init(void) {
 	TIM_OC_InitTypeDef sConfigOC;
 
 	htim14.Instance = TIM14;
-	htim14.Init.Prescaler = 9;
+	htim14.Init.Prescaler = 99;
 	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim14.Init.Period = 48000;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
