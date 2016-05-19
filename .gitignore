@@ -33,3 +33,5 @@
 /soft/test_mag/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f078xx.h
 /soft/test_mag/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f091xc.h
 /soft/test_mag/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f098xx.h
+/doc/.ipynb_checkpoints
+/measurements/.ipynb_checkpoints
