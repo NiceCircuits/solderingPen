@@ -13,10 +13,14 @@
 #include "stm32f070x6.h"
 #include <stdbool.h>
 
-extern TIM_HandleTypeDef htim14;
+extern TIM_HandleTypeDef htim14, htim1;
 
 extern volatile bool heaterPwmRisingEdgeFlag;
 extern volatile bool heaterPwmFallingEdgeFlag;
+
+HAL_StatusTypeDef heaterDelayStart(uint16_t delay);
+
+bool heaterDelayElapsed();
 
 HAL_StatusTypeDef heaterStartPwm();
 
