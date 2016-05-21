@@ -33,8 +33,8 @@ uint_fast8_t debugPrint(const char* format, ...) {
 	// formatted string will be available in debugBuffer
 	va_start(arglist, format);
 	len = len
-			+ (size_t) vsnprintf(debugUsartBuffer + len,
-					DEBUG_BUFFER_SIZE - len - 2, format, arglist);
+			+ (uint16_t) vsnprintf(debugUsartBuffer + len,
+					(size_t) (DEBUG_BUFFER_SIZE - len - 2), format, arglist);
 	va_end(arglist);
 	// setup DMA transfer
 	HAL_UART_Transmit(&huart2, (uint8_t*) debugUsartBuffer, len, DEBUG_TIMEOUT);

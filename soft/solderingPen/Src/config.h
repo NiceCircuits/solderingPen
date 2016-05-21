@@ -21,4 +21,12 @@ enum {
 	DEBUG_TIMEOUT = 100
 };
 
+//======================= Timing settings ======================================
+enum{
+	/// Delay between rising edge of heater PWM (heater on) and ADC conversion.
+	ADC_HEATER_ON_DELAY=20,
+	/// Delay between falling edge of heater PWM (heater off) and ADC conversion.
+	ADC_HEATER_OFF_DELAY=5
+};
+
 #endif /* CONFIG_H_ */

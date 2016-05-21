@@ -40,7 +40,7 @@ HAL_StatusTypeDef adcConvertWhileHeaterOn() {
 	hadc.Instance->CHSELR = ADC_CHSELR_CHANNEL(ADC_CHANNEL_0) /* vin_sense_sig */
 	| ADC_CHSELR_CHANNEL(ADC_CHANNEL_1) /* driver_fb_sig */
 	| ADC_CHSELR_CHANNEL(ADC_CHANNEL_5); /* potentiometer_sig */
-	return HAL_ADC_Start_DMA(&hadc, adcBuffer, 3);
+	return HAL_ADC_Start_DMA(&hadc, (uint32_t*)adcBuffer, 3);
 }
 
 /**
@@ -50,7 +50,7 @@ HAL_StatusTypeDef adcConvertWhileHeaterOn() {
 HAL_StatusTypeDef adcConvertWhileHeaterOff() {
 	hadc.Instance->CHSELR = ADC_CHSELR_CHANNEL(ADC_CHANNEL_0) /* vin_sense_sig */
 	| ADC_CHSELR_CHANNEL(ADC_CHANNEL_3); /* sensor_sig */
-	return HAL_ADC_Start_DMA(&hadc, adcBuffer + 3, 2);
+	return HAL_ADC_Start_DMA(&hadc, (uint32_t*)(adcBuffer + 3), 2);
 }
 
 /**

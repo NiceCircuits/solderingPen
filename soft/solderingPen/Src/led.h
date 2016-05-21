@@ -11,7 +11,6 @@
 
 #include "stm32f0xx_hal.h"
 #include "stm32f070x6.h"
-#include <stdbool.h>
 
 extern TIM_HandleTypeDef htim3;
 

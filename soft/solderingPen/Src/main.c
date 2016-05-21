@@ -34,10 +34,13 @@
 #include "stm32f0xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "stm32f070x6.h"
 #include "debug.h"
 #include "heater.h"
 #include "led.h"
+#include "adc.h"
+// Includes for Eclipse indexer
+#include "stm32f070x6.h"
+#include "stm32f0xx_hal_rcc.h"
 
 /* USER CODE END Includes */
 
@@ -47,11 +50,32 @@ DMA_HandleTypeDef hdma_adc;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
+
+/// State of heater PWM state machine
+typedef enum {
+	/// Invalid state.
+	heaterPwmStateInvalid,
+	/// Heater is on, waiting for delay to update measurements.
+	heaterPwmStateOnDelay,
+	/// Heater is on, updating measurements.
+	heaterPwmStateOnBusy,
+	/// Heater is on, waiting for turn off.
+	heaterPwmStateOnIdle,
+	/// Heater is off, waiting for delay to update measurements.
+	heaterPwmStateOffDelay,
+	/// Heater is off, updating measurements.
+	heaterPwmStateOffBusy,
+	/// Heater is off, waiting for turn on.
+	heaterPwmStateOffIdle
+} heaterPwmState_t;
+
+heaterPwmState_t heaterPwmState = heaterPwmStateInvalid;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -67,6 +91,7 @@ static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM1_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
@@ -82,6 +107,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 int main(void) {
 
 	/* USER CODE BEGIN 1 */
+
 	/* USER CODE END 1 */
 
 	/* MCU Configuration----------------------------------------------------------*/
@@ -100,20 +126,15 @@ int main(void) {
 	MX_TIM3_Init();
 	MX_TIM14_Init();
 	MX_USART2_UART_Init();
+	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
-	// Debug Independent Watchdog stopped when Core is halted
-	DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_IWDG_STOP
-			| DBGMCU_APB1_FZ_DBG_WWDG_STOP;
-
+	adcInit();
 	heaterStartPwm();
 	ledStartPwm();
-	heaterCmd(2000);
+	heaterPwmState = heaterPwmStateOffIdle;
 
-//	uint32_t x = 500;
-//	const uint32_t max = 2000;
-//	const uint16_t adcBuffer[1000];
-//	HAL_ADC_Start_DMA(&hadc, &adcBuffer, 1000);
+	uint32_t x = 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -122,22 +143,63 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		//HAL_GPIO_TogglePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin);
-		//HAL_Delay(10);
-		//debugPrint("test %u\r\n", x);
-		//htim14.Instance->CCR1 = x;
-		if (heaterPwmRisingEdgeFlag) {
-			heaterPwmRisingEdgeFlag = 0;
+		// ========== State machine update ===========
+//		debugPrint("{s,T,%u}", heaterPwmState * 100);
+		switch (heaterPwmState) {
+		case heaterPwmStateOnDelay:
+			// Heater is on, waiting for delay to update measurements.
+			if (heaterDelayElapsed()) {
+				heaterPwmState = heaterPwmStateOnBusy;
+			}
+			break;
+		case heaterPwmStateOnBusy:
+			// Heater is on, updating measurements.
+			debugPrint("{x,T,%u}", x / 10);
+			debugPrint("{sen,T,%u}", adcGet(adcSensor));
+			debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
+			//debugPrint("\r\n");
+			adcConvertWhileHeaterOn();
 			ledCmd(0, 0, 5000);
-		}
-		if (heaterPwmFallingEdgeFlag) {
-			heaterPwmFallingEdgeFlag = 0;
+			heaterPwmState = heaterPwmStateOnIdle;
+			break;
+		case heaterPwmStateOnIdle:
+			// Heater is on, waiting for turn off.
+			if (heaterPwmFallingEdgeFlag) {
+				heaterPwmFallingEdgeFlag = 0;
+				heaterDelayStart(ADC_HEATER_OFF_DELAY);
+				heaterPwmState = heaterPwmStateOffDelay;
+			}
+			break;
+		case heaterPwmStateOffDelay:
+			// Heater is off, waiting for delay to update measurements.
+			if (heaterDelayElapsed()) {
+				heaterPwmState = heaterPwmStateOffBusy;
+			}
+			break;
+		case heaterPwmStateOffBusy:
+			// Heater is off, updating measurements.
+			adcConvertWhileHeaterOff();
 			ledCmd(0, 0, 0);
+			heaterCmd(x);
+			x += 100;
+			if (x >= 9999) {
+				x = 1;
+			}
+			heaterPwmState = heaterPwmStateOffIdle;
+			break;
+		case heaterPwmStateOffIdle:
+			// Heater is off, waiting for turn on.
+			if (heaterPwmRisingEdgeFlag) {
+				heaterPwmRisingEdgeFlag = 0;
+				heaterDelayStart(ADC_HEATER_ON_DELAY);
+				heaterPwmState = heaterPwmStateOnDelay;
+			}
+			break;
+		default:
+			// Invalid state.
+			// TODO!
+			break;
 		}
-//		htim3.Instance->CCR1 = x - 500;
-//		x++;
-//		if (x > max)
-//			x = 500;
 	}
 	/* USER CODE END 3 */
 
@@ -197,18 +259,18 @@ void MX_ADC_Init(void) {
 	hadc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
 	hadc.Init.LowPowerAutoWait = DISABLE;
 	hadc.Init.LowPowerAutoPowerOff = DISABLE;
-	hadc.Init.ContinuousConvMode = ENABLE;
+	hadc.Init.ContinuousConvMode = DISABLE;
 	hadc.Init.DiscontinuousConvMode = DISABLE;
 	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-	hadc.Init.DMAContinuousRequests = ENABLE;
-	hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+	hadc.Init.DMAContinuousRequests = DISABLE;
+	hadc.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
 	HAL_ADC_Init(&hadc);
 
 	/**Configure for the selected ADC regular channel to be converted.
 	 */
 	sConfig.Channel = ADC_CHANNEL_0;
 	sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-	sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+	sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
 	HAL_ADC_ConfigChannel(&hadc, &sConfig);
 
 	/**Configure for the selected ADC regular channel to be converted.
@@ -240,6 +302,19 @@ void MX_I2C1_Init(void) {
 	/**Configure Analogue filter
 	 */
 	HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE);
+
+}
+
+/* TIM1 init function */
+void MX_TIM1_Init(void) {
+
+	htim1.Instance = TIM1;
+	htim1.Init.Prescaler = 4799;
+	htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim1.Init.Period = 9;
+	htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim1.Init.RepetitionCounter = 0;
+	HAL_TIM_OnePulse_Init(&htim1, TIM_OPMODE_SINGLE);
 
 }
 
@@ -280,7 +355,7 @@ void MX_TIM14_Init(void) {
 	TIM_OC_InitTypeDef sConfigOC;
 
 	htim14.Instance = TIM14;
-	htim14.Init.Prescaler = 4799;
+	htim14.Init.Prescaler = 479;
 	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim14.Init.Period = 9999;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -302,7 +377,7 @@ void MX_TIM14_Init(void) {
 void MX_USART2_UART_Init(void) {
 
 	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 115200;
+	huart2.Init.BaudRate = 500000;
 	huart2.Init.WordLength = UART_WORDLENGTH_8B;
 	huart2.Init.StopBits = UART_STOPBITS_1;
 	huart2.Init.Parity = UART_PARITY_NONE;
