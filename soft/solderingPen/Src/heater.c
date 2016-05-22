@@ -63,7 +63,7 @@ HAL_StatusTypeDef heaterStartPwm() {
  * @param duty New duty.
  * @return Status.
  */
-HAL_StatusTypeDef heaterCmd(uint32_t duty) {
+HAL_StatusTypeDef heaterCmd(uint16_t duty) {
 	if (duty > HEATER_PWM_MAX) {
 		htim14.Instance->CCR1 = HEATER_PWM_MAX;
 		return HAL_ERROR;

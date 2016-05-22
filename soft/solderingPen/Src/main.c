@@ -57,6 +57,9 @@ TIM_HandleTypeDef htim14;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
 
+/* USER CODE BEGIN PV */
+/* Private variables ---------------------------------------------------------*/
+
 /// State of heater PWM state machine
 typedef enum {
 	/// Invalid state.
@@ -76,9 +79,6 @@ typedef enum {
 } heaterPwmState_t;
 
 heaterPwmState_t heaterPwmState = heaterPwmStateInvalid;
-
-/* USER CODE BEGIN PV */
-/* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
 
@@ -107,6 +107,21 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 int main(void) {
 
 	/* USER CODE BEGIN 1 */
+	/// Temperature set
+	uint16_t temperatureSetLsb = 0;
+	/// Error of temperature set
+	int32_t errorTemp = 0;
+	/// Previous value of error of temperature set
+	int32_t errorTempPrev = 0;
+	/// Integral of error of temperature set over time
+	int32_t errorTempIntegral = 0;
+	/// Value of PWM to be set
+	int32_t pwmSet;
+	volatile int32_t REGULATOR_P = 1000;
+	/// Integral gain of regulator - from sensor to heater PWM.
+	volatile int32_t REGULATOR_I = 0;
+	/// Derivative gain of regulator - from sensor to heater PWM.
+	volatile int32_t REGULATOR_D = 0;
 
 	/* USER CODE END 1 */
 
@@ -133,8 +148,6 @@ int main(void) {
 	heaterStartPwm();
 	ledStartPwm();
 	heaterPwmState = heaterPwmStateOffIdle;
-
-	uint32_t x = 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -143,7 +156,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		// ========== State machine update ===========
+		// ========== State machine ===========
 //		debugPrint("{s,T,%u}", heaterPwmState * 100);
 		switch (heaterPwmState) {
 		case heaterPwmStateOnDelay:
@@ -154,12 +167,47 @@ int main(void) {
 			break;
 		case heaterPwmStateOnBusy:
 			// Heater is on, updating measurements.
-			debugPrint("{x,T,%u}", x / 10);
+//			debugPrint("{x,T,%u}", x / 10);
 			debugPrint("{sen,T,%u}", adcGet(adcSensor));
-			debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
+//			debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
 			//debugPrint("\r\n");
 			adcConvertWhileHeaterOn();
-			ledCmd(0, 0, 5000);
+			// ========== Heater regulator control. ===========
+			// Calculate desired temperature.
+			temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(
+					adcPotentiometer) * POT_SENS_NUMERATOR)
+					>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
+//			debugPrint("{set,T,%u}", temperatureSetLsb);
+			// Save previous value of error.
+			errorTempPrev = errorTemp;
+			// Calculate actual value of temperature error.
+			errorTemp = (int32_t) temperatureSetLsb
+					- (int32_t) adcGet(adcSensor);
+			// Calculate integral of temperature error.
+			if ((errorTempIntegral + errorTemp) > 100) {
+				// Overflow.
+				errorTempIntegral = 100;
+			} else if ((errorTempIntegral + errorTemp) < -100) {
+				// Overflow.
+				errorTempIntegral = -100;
+			} else {
+				errorTempIntegral += errorTemp;
+			}
+//			debugPrint("{e,T,%d}", errorTemp - 100);
+//			debugPrint("{int,T,%d}", errorTempIntegral - 100);
+			pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
+			pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
+			pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
+
+			if (pwmSet < 0) {
+				pwmSet = 0;
+			}
+			if (pwmSet > HEATER_PWM_MAX) {
+				pwmSet = HEATER_PWM_MAX;
+			}
+			heaterCmd((uint16_t) pwmSet);
+			ledCmd(0, 0, (uint16_t) pwmSet);
+//			debugPrint("{pwm,T,%u}", pwmSet / 64);
 			heaterPwmState = heaterPwmStateOnIdle;
 			break;
 		case heaterPwmStateOnIdle:
@@ -179,12 +227,6 @@ int main(void) {
 		case heaterPwmStateOffBusy:
 			// Heater is off, updating measurements.
 			adcConvertWhileHeaterOff();
-			ledCmd(0, 0, 0);
-			heaterCmd(x);
-			x += 100;
-			if (x >= 9999) {
-				x = 1;
-			}
 			heaterPwmState = heaterPwmStateOffIdle;
 			break;
 		case heaterPwmStateOffIdle:
@@ -355,7 +397,7 @@ void MX_TIM14_Init(void) {
 	TIM_OC_InitTypeDef sConfigOC;
 
 	htim14.Instance = TIM14;
-	htim14.Init.Prescaler = 479;
+	htim14.Init.Prescaler = 47; //479
 	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim14.Init.Period = 9999;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
