@@ -1986,7 +1986,7 @@
     (fp_text reference R7 (at 0 1.2 180) (layer B.Fab)
       (effects (font (size 0.5 0.5) (thickness 0.05)) (justify mirror))
     )
-    (fp_text value R (at 0 -1.2 180) (layer B.Fab)
+    (fp_text value 1k (at 0 -1.2 180) (layer B.Fab)
       (effects (font (size 0.5 0.5) (thickness 0.05)) (justify mirror))
     )
     (fp_line (start -0.18 0) (end 0.18 0) (layer B.CrtYd) (width 0.05))
