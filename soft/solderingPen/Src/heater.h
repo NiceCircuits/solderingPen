@@ -26,11 +26,4 @@ HAL_StatusTypeDef heaterStartPwm();
 
 HAL_StatusTypeDef heaterCmd(uint16_t duty);
 
-enum {
-	/// Value for 100% duty
-	HEATER_PWM_FULL = 9999,
-	/// Maximum allowed value of heater PWM duty
-	HEATER_PWM_MAX = HEATER_PWM_FULL * 93 / 100,
-};
-
 #endif /* SRC_HEATER_H_ */

@@ -16,7 +16,7 @@ volatile bool heaterPwmFallingEdgeFlag = 0;
 
 /**
  * Function used to generate precise delay needed for starting ADC and magnetometer.
- * @param delay Delay in unit of 1/10ms.
+ * @param delay Delay in unit of 100us.
  * @return Status.
  */
 HAL_StatusTypeDef heaterDelayStart(uint16_t delay) {

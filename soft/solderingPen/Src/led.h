@@ -11,6 +11,7 @@
 
 #include "stm32f0xx_hal.h"
 #include "stm32f070x6.h"
+#include "config.h"
 
 extern TIM_HandleTypeDef htim3;
 
@@ -22,5 +23,7 @@ enum {
 HAL_StatusTypeDef ledStartPwm();
 
 HAL_StatusTypeDef ledCmd(uint16_t r, uint16_t g, uint16_t b);
+
+HAL_StatusTypeDef ledLoop(state_t currentState);
 
 #endif /* SRC_LED_H_ */

@@ -116,12 +116,21 @@ int main(void) {
 	/// Integral of error of temperature set over time
 	int32_t errorTempIntegral = 0;
 	/// Value of PWM to be set
-	int32_t pwmSet;
-	volatile int32_t REGULATOR_P = 1000;
+	int32_t pwmSet = 0;
+	/// Previous value of set PWM
+	int32_t lastPwmSet = 0;
+	/// Limits for open load and overload of heater driver
+	int32_t heaterOpenLoadLimit, heaterOveloadLimit;
+	/// Counter for time without proper current feedback diagnosis
+	uint_fast16_t heaterNoFbCounter = 0;
+	/// Proportional gain of regulator - from sensor to heater PWM.
+	volatile int32_t REGULATOR_P = 1024;
 	/// Integral gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_I = 0;
 	/// Derivative gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_D = 0;
+	/// Current state of device.
+	static state_t currentState;
 
 	/* USER CODE END 1 */
 
@@ -156,7 +165,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		// ========== State machine ===========
+		// ==================== PWM phase state machine =====================
 //		debugPrint("{s,T,%u}", heaterPwmState * 100);
 		switch (heaterPwmState) {
 		case heaterPwmStateOnDelay:
@@ -168,46 +177,90 @@ int main(void) {
 		case heaterPwmStateOnBusy:
 			// Heater is on, updating measurements.
 //			debugPrint("{x,T,%u}", x / 10);
-			debugPrint("{sen,T,%u}", adcGet(adcSensor));
-//			debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
+//			debugPrint("{s,T,%u}", adcGet(adcSensor));
 			//debugPrint("\r\n");
 			adcConvertWhileHeaterOn();
-			// ========== Heater regulator control. ===========
-			// Calculate desired temperature.
-			temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(
-					adcPotentiometer) * POT_SENS_NUMERATOR)
-					>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
+			// ==================== Device state machine =====================
+			switch (currentState) {
+			case STATE_OK_LOW_TEMP:
+			case STATE_OK:
+			case STATE_OK_HIGH_TEMP:
+			case STATE_STANDBY:
+				// ========== Heater regulator control. ===========
+				// Calculate desired temperature.
+				temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
+						>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
 //			debugPrint("{set,T,%u}", temperatureSetLsb);
-			// Save previous value of error.
-			errorTempPrev = errorTemp;
-			// Calculate actual value of temperature error.
-			errorTemp = (int32_t) temperatureSetLsb
-					- (int32_t) adcGet(adcSensor);
-			// Calculate integral of temperature error.
-			if ((errorTempIntegral + errorTemp) > 100) {
-				// Overflow.
-				errorTempIntegral = 100;
-			} else if ((errorTempIntegral + errorTemp) < -100) {
-				// Overflow.
-				errorTempIntegral = -100;
-			} else {
-				errorTempIntegral += errorTemp;
-			}
+				// Save previous value of error.
+				errorTempPrev = errorTemp;
+				// Calculate actual value of temperature error.
+				errorTemp = (int32_t) temperatureSetLsb - (int32_t) adcGet(adcSensor);
+				// Calculate integral of temperature error.
+				if ((errorTempIntegral + errorTemp) > 100) {
+					// Overflow.
+					errorTempIntegral = 100;
+				} else if ((errorTempIntegral + errorTemp) < -100) {
+					// Overflow.
+					errorTempIntegral = -100;
+				} else {
+					errorTempIntegral += errorTemp;
+				}
 //			debugPrint("{e,T,%d}", errorTemp - 100);
 //			debugPrint("{int,T,%d}", errorTempIntegral - 100);
-			pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
-			pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
-			pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
+				pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
+				pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
+				pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
 
-			if (pwmSet < 0) {
-				pwmSet = 0;
-			}
-			if (pwmSet > HEATER_PWM_MAX) {
-				pwmSet = HEATER_PWM_MAX;
+				if (pwmSet < 0) {
+					pwmSet = 0;
+				}
+				if (pwmSet > HEATER_PWM_MAX) {
+					pwmSet = HEATER_PWM_MAX;
+				}
+				// --------- heater diagnostics ---------
+				// Check if last PWM duty was long enough for correct feedback reading
+				if (lastPwmSet >= HEATER_FB_PWM_MIN) {
+					heaterOpenLoadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OPEN_LOAD_COEF_A)
+							>> HEATER_COEF_BIT_SHIFT) + HEATER_OPEN_LOAD_COEF_B;
+					heaterOveloadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OVERLOAD_COEF_A)
+							>> HEATER_COEF_BIT_SHIFT) + HEATER_OVERLOAD_COEF_B;
+					heaterNoFbCounter = 0; // Reset no feedback counter.
+					debugPrint("{l,T,%u}", heaterOpenLoadLimit);
+					debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
+					debugPrint("{h,T,%u}", heaterOveloadLimit);
+					debugPrint("{p,T,%u}", lastPwmSet / 64);
+				} else {
+					heaterNoFbCounter++;
+					if (heaterNoFbCounter >= HEATER_MAX_TIME_NO_FB) {
+						heaterNoFbCounter = 0;
+						// Increase PWM duty for one next cycle to gain correct current sense reading.
+						if (pwmSet < HEATER_FB_PWM_MIN) {
+							pwmSet = HEATER_FB_PWM_MIN;
+						}
+					}
+				}
+				if (errorTemp > 30) {
+					currentState = STATE_OK_LOW_TEMP;
+				} else if (errorTemp < -50) {
+					currentState = STATE_OK_HIGH_TEMP;
+				} else {
+					currentState = STATE_OK;
+				}
+				break;
+			case STATE_ERROR_OVERLOAD:
+			case STATE_ERROR_OPEN_LOAD:
+			case STATE_ERROR_HIGH_TEMP:
+				break;
+			case STATE_ERROR_LOW_TEMP:
+				break;
+			case STATE_LOW_SUPPLY:
+			case STATE_HIGH_SUPPLY:
+				break;
 			}
 			heaterCmd((uint16_t) pwmSet);
-			ledCmd(0, 0, (uint16_t) pwmSet);
-//			debugPrint("{pwm,T,%u}", pwmSet / 64);
+			ledLoop(currentState);
+			// Store pwmSet value for next loop run
+			lastPwmSet = pwmSet;
 			heaterPwmState = heaterPwmStateOnIdle;
 			break;
 		case heaterPwmStateOnIdle:
@@ -255,8 +308,7 @@ void SystemClock_Config(void) {
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
-			| RCC_OSCILLATORTYPE_HSI14;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_HSI14;
 	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
 	RCC_OscInitStruct.HSI14State = RCC_HSI14_ON;
 	RCC_OscInitStruct.HSICalibrationValue = 16;
@@ -267,8 +319,7 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
 	HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
