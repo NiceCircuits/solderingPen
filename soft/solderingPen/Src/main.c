@@ -38,6 +38,7 @@
 #include "heater.h"
 #include "led.h"
 #include "adc.h"
+#include "magnetometer.h"
 // Includes for Eclipse indexer
 #include "stm32f070x6.h"
 #include "stm32f0xx_hal_rcc.h"
@@ -130,7 +131,15 @@ int main(void) {
 	/// Derivative gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_D = 0;
 	/// Current state of device.
-	static state_t currentState;
+	state_t currentState;
+	/// Minor error flags
+	error_flags_t error_flags = NO_ERROR_FLAGS;
+	/// Variable for holding status of functions.
+	HAL_StatusTypeDef status;
+	/// Previous magnetometer status
+	HAL_StatusTypeDef mag_status_last = HAL_OK;
+	/// Value read from magnetometer.
+	uint16_t magnetometer;
 
 	/* USER CODE END 1 */
 
@@ -157,6 +166,10 @@ int main(void) {
 	heaterStartPwm();
 	ledStartPwm();
 	heaterPwmState = heaterPwmStateOffIdle;
+	status = magnetometerInit();
+	if (status != HAL_OK) {
+		error_flags |= MAGNETOMETER_ERROR_FLAG;
+	}
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -180,6 +193,22 @@ int main(void) {
 //			debugPrint("{s,T,%u}", adcGet(adcSensor));
 			//debugPrint("\r\n");
 			adcConvertWhileHeaterOn();
+			// ========== Read and process magnetometer ===========
+			status = magnetometerRead(&magnetometer);
+			if (status == HAL_OK) {
+				// Clear error flag.
+				error_flags &= (~MAGNETOMETER_ERROR_FLAG);
+			} else {
+				/* Cannot read new value from magnetometer. It can happen once per cycle, as magnetometer data rate is
+				 * 80 Hz and loop cycle is 100 Hz. */
+				if (mag_status_last != HAL_OK) {
+					// Cannot read new value twice. Set error flag.
+					error_flags |= MAGNETOMETER_ERROR_FLAG;
+				}
+			}
+			mag_status_last = status;
+			debugPrint("{s,T,%u}", status);
+			debugPrint("{v,T,%u}", magnetometer);
 			// ==================== Device state machine =====================
 			switch (currentState) {
 			case STATE_OK_LOW_TEMP:
@@ -225,10 +254,10 @@ int main(void) {
 					heaterOveloadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OVERLOAD_COEF_A)
 							>> HEATER_COEF_BIT_SHIFT) + HEATER_OVERLOAD_COEF_B;
 					heaterNoFbCounter = 0; // Reset no feedback counter.
-					debugPrint("{l,T,%u}", heaterOpenLoadLimit);
-					debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
-					debugPrint("{h,T,%u}", heaterOveloadLimit);
-					debugPrint("{p,T,%u}", lastPwmSet / 64);
+//					debugPrint("{l,T,%u}", heaterOpenLoadLimit);
+//					debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
+//					debugPrint("{h,T,%u}", heaterOveloadLimit);
+//					debugPrint("{p,T,%u}", lastPwmSet / 64);
 				} else {
 					heaterNoFbCounter++;
 					if (heaterNoFbCounter >= HEATER_MAX_TIME_NO_FB) {
@@ -247,14 +276,18 @@ int main(void) {
 					currentState = STATE_OK;
 				}
 				break;
-			case STATE_ERROR_OVERLOAD:
-			case STATE_ERROR_OPEN_LOAD:
-			case STATE_ERROR_HIGH_TEMP:
-				break;
 			case STATE_ERROR_LOW_TEMP:
 				break;
 			case STATE_LOW_SUPPLY:
 			case STATE_HIGH_SUPPLY:
+				break;
+			case STATE_DISCONNECTED:
+				break;
+			case STATE_ERROR_OVERLOAD:
+			case STATE_ERROR_OPEN_LOAD:
+			case STATE_ERROR_HIGH_TEMP:
+			case STATE_INVALID:
+			default:
 				break;
 			}
 			heaterCmd((uint16_t) pwmSet);

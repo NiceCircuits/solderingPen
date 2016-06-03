@@ -40,9 +40,10 @@ HAL_StatusTypeDef ledCmd(uint16_t r, uint16_t g, uint16_t b) {
  * @param currentState Current state of the device.
  * @return Status.
  */
+// TODO: error status (megnetometer etc.)
 HAL_StatusTypeDef ledLoop(state_t currentState) {
 	/// State during previous loop.
-	static state_t lastState = STATE_ERROR;
+	static state_t lastState = STATE_INVALID;
 	static int32_t cnt = 0;
 	static int32_t dir = 1;
 	if (currentState != lastState) {

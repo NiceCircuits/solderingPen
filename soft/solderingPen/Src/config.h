@@ -139,4 +139,11 @@ typedef enum {
 	/// There is error - tip temperature cannot reach set value.
 	STATE_ERROR_LOW_TEMP,
 } state_t;
+
+/// Type holding flags indicating minor errors.
+typedef enum {
+	NO_ERROR_FLAGS=0,
+	MAGNETOMETER_ERROR_FLAG = 1,
+} error_flags_t;
+
 #endif /* CONFIG_H_ */
