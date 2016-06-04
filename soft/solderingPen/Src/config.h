@@ -9,6 +9,9 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#include "stm32f0xx_hal.h"
+#include "stm32f070x6.h"
+
 //=============================================================================
 //======================= Settings ============================================
 //=============================================================================
@@ -46,6 +49,8 @@ enum {
 	SENSOR_VOLTAGE_T_MIN_UV = 1000,
 	/// (TODO: 3200)Sensor voltage for maximum temperature in uV.
 	SENSOR_VOLTAGE_T_MAX_UV = 3200,
+	/// Sensor voltage for standby temperature in uV.
+	SENSOR_VOLTAGE_T_STANDBY_UV = 1000,
 	/// Gain of input amplifier.
 	SENSOR_GAIN_FS = 181,
 	/// Supply voltage in uV.
@@ -64,6 +69,8 @@ enum {
 	SENSOR_ADC_T_MIN = SENSOR_VOLTAGE_T_MIN_UV * SENSOR_GAIN_FS / 4 * ADC_FS / SUPPLY_VOLTAGE_UV * 4,
 	/// Sensor reading for maximum temperature in LSB.
 	SENSOR_ADC_T_MAX = SENSOR_VOLTAGE_T_MAX_UV * SENSOR_GAIN_FS / 8 * ADC_FS / SUPPLY_VOLTAGE_UV * 8,
+	/// Sensor reading for maximum temperature in LSB.
+	SENSOR_ADC_T_STANDBY = SENSOR_VOLTAGE_T_STANDBY_UV * SENSOR_GAIN_FS / 8 * ADC_FS / SUPPLY_VOLTAGE_UV * 8,
 	/*
 	 * Potentiometer reading to expected sensor value calculation:
 	 * sensor [LSB] = numerator/denominator * potentiometer [LSB] + addend
@@ -99,7 +106,7 @@ enum {
 enum {
 	LED_FULL_BRIGHTNESS = 10000,
 	LED_LOW_TEMP_RED_PERCENT = 80,
-	LED_STANDBY_MIN = LED_FULL_BRIGHTNESS / 10,
+	LED_STANDBY_MIN = LED_FULL_BRIGHTNESS / 5,
 	LED_STANDBY_MAX = LED_FULL_BRIGHTNESS,
 	LED_STANDBY_STEP = LED_FULL_BRIGHTNESS / 200,
 	LED_DISCONNECTED_MIN = LED_FULL_BRIGHTNESS / 10,
@@ -142,8 +149,17 @@ typedef enum {
 
 /// Type holding flags indicating minor errors.
 typedef enum {
-	NO_ERROR_FLAGS=0,
-	MAGNETOMETER_ERROR_FLAG = 1,
+	NO_ERROR_FLAGS = 0, MAGNETOMETER_ERROR_FLAG = 1,
 } error_flags_t;
+
+/// Configuration that is saved in EEPROM.
+typedef struct {
+	int16_t magnetometer_offsets[3];
+	char test[100];
+} eeprom_config_t;
+
+extern const eeprom_config_t eeprom_config;
+
+HAL_StatusTypeDef eeprom_config_save(eeprom_config_t *new_config);
 
 #endif /* CONFIG_H_ */

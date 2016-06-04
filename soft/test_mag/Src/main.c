@@ -55,7 +55,9 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+__attribute__((__section__(".eeprom"))) const char test[1024] =
+		"THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS"
+				"\r\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,7 +95,7 @@ int main(void) {
 	uint32_t result;
 	int16_t xyz;
 
-	const uint8_t TEST_MODE = 2;
+	const uint8_t TEST_MODE = 3;
 	/* USER CODE END 1 */
 
 	/* MCU Configuration----------------------------------------------------------*/
@@ -115,6 +117,22 @@ int main(void) {
 	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
+	if (TEST_MODE == 3) {
+		FLASH_EraseInitTypeDef in;
+		uint32_t err;
+		in.TypeErase = FLASH_TYPEERASE_PAGES;
+		in.NbPages = 1;
+		in.PageAddress =&test;
+		debugPrint(test);
+		HAL_FLASH_Unlock();
+		__HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_BSY | FLASH_FLAG_WRPERR | FLASH_FLAG_PGERR);
+		HAL_FLASHEx_Erase(&in, &err);
+		HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,&test, 0x00555555);
+		HAL_FLASH_Lock();
+		debugPrint(test);
+		while (1) {
+		};
+	}
 	// I2C address scan
 	if (TEST_MODE == 0) {
 		debugPrint("I2C address scan\r\n");
@@ -126,19 +144,15 @@ int main(void) {
 		}
 		debugPrint("I2C address scan finished\r\n");
 	}
-	HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, &config_standby,
-			1, 1000);
+	HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, &config_standby, 1, 1000);
 	config_standby &= 0xfe; //set standby mode
-	HAL_I2C_Mem_Write(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, &config_standby,
-			1, 1000);
+	HAL_I2C_Mem_Write(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, &config_standby, 1, 1000);
 	do {
 		// wait for standby mode
-		HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x08, I2C_MEMADD_SIZE_8BIT, &result, 1,
-				1000);
+		HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x08, I2C_MEMADD_SIZE_8BIT, &result, 1, 1000);
 		HAL_Delay(200);
 	} while (result != 0);
-	result = HAL_I2C_Mem_Write(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, config,
-			2, 1000);
+	result = HAL_I2C_Mem_Write(&hi2c1, ADDR, 0x10, I2C_MEMADD_SIZE_8BIT, config, 2, 1000);
 	// Turn on heater PWM
 	if (TEST_MODE == 1) {
 		HAL_TIM_Base_Start(&htim14);
@@ -146,8 +160,7 @@ int main(void) {
 		htim14.Instance->CCR1 = 15000;
 	}
 	if (TEST_MODE == 0) {
-		result = HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x00, I2C_MEMADD_SIZE_8BIT,
-				data, LEN, 1000);
+		result = HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x00, I2C_MEMADD_SIZE_8BIT, data, LEN, 1000);
 		if (result == HAL_OK) {
 			for (i = 0; i < LEN; i++) {
 				debugPrint("%u ", data[i]);
@@ -165,8 +178,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		result = HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x00, I2C_MEMADD_SIZE_8BIT,
-				data, LEN, 1000);
+		result = HAL_I2C_Mem_Read(&hi2c1, ADDR, 0x00, I2C_MEMADD_SIZE_8BIT, data, LEN, 1000);
 		if (result == HAL_OK) {
 			/*
 			 for (i = 0; i < LEN; i++) {
@@ -178,8 +190,7 @@ int main(void) {
 				// new data ready
 //				debugPrint("0x%02x\t", data[0x10]);
 				for (i = 0; i < 3; i += 1) {
-					xyz = ((int16_t) data[1 + i * 2] * (int16_t) 256)
-							+ data[2 + i * 2];
+					xyz = ((int16_t) data[1 + i * 2] * (int16_t) 256) + data[2 + i * 2];
 					if (TEST_MODE == 1) {
 						buffer[bCount] = xyz;
 						bCount++;
@@ -227,8 +238,7 @@ void SystemClock_Config(void) {
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
-			| RCC_OSCILLATORTYPE_HSI14;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_HSI14;
 	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
 	RCC_OscInitStruct.HSI14State = RCC_HSI14_ON;
 	RCC_OscInitStruct.HSICalibrationValue = 16;
@@ -239,8 +249,7 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
 	HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
@@ -402,7 +411,7 @@ void MX_TIM14_Init(void) {
 void MX_USART2_UART_Init(void) {
 
 	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 115200;
+	huart2.Init.BaudRate = 500000;
 	huart2.Init.WordLength = UART_WORDLENGTH_8B;
 	huart2.Init.StopBits = UART_STOPBITS_1;
 	huart2.Init.Parity = UART_PARITY_NONE;

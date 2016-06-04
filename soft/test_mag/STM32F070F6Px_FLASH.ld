@@ -60,7 +60,8 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Specify the memory areas */
 MEMORY
 {
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 32K
+FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 31K
+EEPROM(rwx)    : ORIGIN = 0x08007C00, LENGTH = 1K
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 6K
 }
 
@@ -108,6 +109,14 @@ SECTIONS
     __exidx_end = .;
   } >FLASH
 
+	/* EEPROM section in Flash */
+	.eeprom :
+	{
+	  . = ALIGN(4);
+	     *(.eeprom)
+	  . = ALIGN(4);
+	} > EEPROM
+	
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
