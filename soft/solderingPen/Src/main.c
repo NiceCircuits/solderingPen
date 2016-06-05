@@ -79,8 +79,6 @@ typedef enum {
 	heaterPwmStateOffIdle
 } heaterPwmState_t;
 
-heaterPwmState_t heaterPwmState = heaterPwmStateInvalid;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,6 +106,8 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 int main(void) {
 
 	/* USER CODE BEGIN 1 */
+	/// State of heater PWM state machine
+	heaterPwmState_t heaterPwmState = heaterPwmStateInvalid;
 	/// Temperature set
 	uint16_t temperatureSetLsb = 0;
 	/// Error of temperature set
@@ -118,12 +118,6 @@ int main(void) {
 	int32_t errorTempIntegral = 0;
 	/// Value of PWM to be set
 	int32_t pwmSet = 0;
-	/// Previous value of set PWM
-	int32_t lastPwmSet = 0;
-	/// Limits for open load and overload of heater driver
-	int32_t heaterOpenLoadLimit, heaterOveloadLimit;
-	/// Counter for time without proper current feedback diagnosis
-	uint_fast16_t heaterNoFbCounter = 0;
 	/// Proportional gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_P = 1024;
 	/// Integral gain of regulator - from sensor to heater PWM.
@@ -140,6 +134,8 @@ int main(void) {
 	HAL_StatusTypeDef mag_status_last = HAL_OK;
 	/// Value read from magnetometer.
 	uint16_t magnetometer;
+	/// State of heater driver load.
+	tip_state_t tip_state = TIP_OK;
 
 	/* USER CODE END 1 */
 
@@ -158,7 +154,6 @@ int main(void) {
 	MX_I2C1_Init();
 	MX_TIM3_Init();
 	MX_TIM14_Init();
-	MX_USART2_UART_Init();
 	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
@@ -207,7 +202,13 @@ int main(void) {
 				}
 			}
 			mag_status_last = status;
-			debugPrint("{s,T,%u}", status);
+			if (magnetometer > 10000) {
+				currentState = STATE_STANDBY;
+			} else {
+				// TODO: move to another place
+				currentState = STATE_OK;
+			}
+//			debugPrint("{s,T,%u}", status);
 			debugPrint("{v,T,%u}", magnetometer);
 			// ==================== Device state machine =====================
 			switch (currentState) {
@@ -217,8 +218,14 @@ int main(void) {
 			case STATE_STANDBY:
 				// ========== Heater regulator control. ===========
 				// Calculate desired temperature.
-				temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
-						>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
+				if (currentState == STATE_STANDBY) {
+					// Set standby temperature.
+					temperatureSetLsb = SENSOR_ADC_T_STANDBY;
+				} else {
+					// Set temperature set by potentiometer.
+					temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
+							>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
+				}
 //			debugPrint("{set,T,%u}", temperatureSetLsb);
 				// Save previous value of error.
 				errorTempPrev = errorTemp;
@@ -247,33 +254,22 @@ int main(void) {
 					pwmSet = HEATER_PWM_MAX;
 				}
 				// --------- heater diagnostics ---------
-				// Check if last PWM duty was long enough for correct feedback reading
-				if (lastPwmSet >= HEATER_FB_PWM_MIN) {
-					heaterOpenLoadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OPEN_LOAD_COEF_A)
-							>> HEATER_COEF_BIT_SHIFT) + HEATER_OPEN_LOAD_COEF_B;
-					heaterOveloadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OVERLOAD_COEF_A)
-							>> HEATER_COEF_BIT_SHIFT) + HEATER_OVERLOAD_COEF_B;
-					heaterNoFbCounter = 0; // Reset no feedback counter.
-//					debugPrint("{l,T,%u}", heaterOpenLoadLimit);
-//					debugPrint("{fb,T,%u}", adcGet(adcDriverFb));
-//					debugPrint("{h,T,%u}", heaterOveloadLimit);
-//					debugPrint("{p,T,%u}", lastPwmSet / 64);
-				} else {
-					heaterNoFbCounter++;
-					if (heaterNoFbCounter >= HEATER_MAX_TIME_NO_FB) {
-						heaterNoFbCounter = 0;
-						// Increase PWM duty for one next cycle to gain correct current sense reading.
-						if (pwmSet < HEATER_FB_PWM_MIN) {
-							pwmSet = HEATER_FB_PWM_MIN;
-						}
+				tip_state = heater_diagnostics(&pwmSet);
+				// --------- Change state if needed. ---------
+				if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+					currentState = STATE_ERROR_OPEN_LOAD;
+				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
+					currentState = STATE_ERROR_OVERLOAD;
+				} else if (tip_state == TIP_DISCONNECTED) {
+					currentState = STATE_DISCONNECTED;
+				} else if (currentState != STATE_STANDBY) {
+					if (errorTemp > 30) {
+						currentState = STATE_OK_LOW_TEMP;
+					} else if (errorTemp < -50) {
+						currentState = STATE_OK_HIGH_TEMP;
+					} else {
+						currentState = STATE_OK;
 					}
-				}
-				if (errorTemp > 30) {
-					currentState = STATE_OK_LOW_TEMP;
-				} else if (errorTemp < -50) {
-					currentState = STATE_OK_HIGH_TEMP;
-				} else {
-					currentState = STATE_OK;
 				}
 				break;
 			case STATE_ERROR_LOW_TEMP:
@@ -292,8 +288,6 @@ int main(void) {
 			}
 			heaterCmd((uint16_t) pwmSet);
 			ledLoop(currentState);
-			// Store pwmSet value for next loop run
-			lastPwmSet = pwmSet;
 			heaterPwmState = heaterPwmStateOnIdle;
 			break;
 		case heaterPwmStateOnIdle:

@@ -98,8 +98,8 @@ enum {
 	/// Minimum value of PWM for correct reading of current sense feedback
 	HEATER_FB_PWM_MIN = (HEATER_PWM_FULL + 1) * HEATER_PWM_FREQ
 			* (ADC_HEATER_ON_DELAY + 3 /* add some time for calculations to perform correctly */) / HEATER_DELAY_FREQ,
-	/// Maximum allowed time without correct feedback reading - set to 1s
-	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ,
+	/// Maximum allowed time without correct feedback reading - set to 0.5s
+	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ/2,
 };
 
 //======================= LED settings ========================================
