@@ -55,9 +55,6 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim14;
 
-UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart2_tx;
-
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
@@ -89,7 +86,6 @@ static void MX_ADC_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM14_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
@@ -400,6 +396,11 @@ void MX_ADC_Init(void) {
 
 	/**Configure for the selected ADC regular channel to be converted.
 	 */
+	sConfig.Channel = ADC_CHANNEL_3;
+	HAL_ADC_ConfigChannel(&hadc, &sConfig);
+
+	/**Configure for the selected ADC regular channel to be converted.
+	 */
 	sConfig.Channel = ADC_CHANNEL_5;
 	HAL_ADC_ConfigChannel(&hadc, &sConfig);
 
@@ -409,7 +410,7 @@ void MX_ADC_Init(void) {
 void MX_I2C1_Init(void) {
 
 	hi2c1.Instance = I2C1;
-	hi2c1.Init.Timing = 0x2000090E;
+	hi2c1.Init.Timing = 0x00000A17;
 	hi2c1.Init.OwnAddress1 = 0;
 	hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
 	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -475,7 +476,7 @@ void MX_TIM14_Init(void) {
 	TIM_OC_InitTypeDef sConfigOC;
 
 	htim14.Instance = TIM14;
-	htim14.Init.Prescaler = 47; //479
+	htim14.Init.Prescaler = 47;
 	htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim14.Init.Period = 9999;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -493,23 +494,6 @@ void MX_TIM14_Init(void) {
 
 }
 
-/* USART2 init function */
-void MX_USART2_UART_Init(void) {
-
-	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 500000;
-	huart2.Init.WordLength = UART_WORDLENGTH_8B;
-	huart2.Init.StopBits = UART_STOPBITS_1;
-	huart2.Init.Parity = UART_PARITY_NONE;
-	huart2.Init.Mode = UART_MODE_TX_RX;
-	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-	huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-	HAL_UART_Init(&huart2);
-
-}
-
 /** 
  * Enable DMA controller clock
  */
@@ -522,9 +506,6 @@ void MX_DMA_Init(void) {
 	/* DMA1_Channel1_IRQn interrupt configuration */
 	HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
 	HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-	/* DMA1_Channel4_5_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(DMA1_Channel4_5_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(DMA1_Channel4_5_IRQn);
 
 }
 
@@ -554,6 +535,16 @@ void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : sensor_pullup_cmd_Pin */
+	GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(sensor_pullup_cmd_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
 
 }
 
