@@ -9,11 +9,14 @@
 #include "heater.h"
 #include "led.h"
 #include "adc.h"
+#include "debug.h"
 
 /// Flag set when rising edge on heater PWM occurs.
 volatile bool heaterPwmRisingEdgeFlag = 0;
 /// Flag set when falling edge on heater PWM occurs.
 volatile bool heaterPwmFallingEdgeFlag = 0;
+/// Is pullup on?
+bool is_pullup_on = false;
 
 /**
  * Function used to generate precise delay needed for starting ADC and magnetometer.
@@ -87,10 +90,30 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
 	/// Counter for time without proper current feedback diagnosis.
 	static uint_fast16_t heaterNoFbCounter = 0;
 	/// Value of sensor input when pullup was off.
-	static uint16_t sensor_no_pullup_value = 0;
-
+	static uint16_t sensor_pullup_off_value = 0;
+	/// Value of sensor input when pullup was on.
+	uint16_t sensor_pullup_on_value;
 	/// State of heater driver load.
 	tip_state_t tip_state = TIP_OK;
+	/// Previous value of tip state.
+	static tip_state_t tip_state_last = TIP_OK;
+	/// Is sensor open?
+	static bool sensor_open = false;
+
+	if (is_pullup_on) {
+		sensor_pullup_on_value = adcGet(adcSensor);
+		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
+		debugPrint("%d %d\r\n", sensor_pullup_on_value, sensor_pullup_off_value);
+		if (sensor_pullup_on_value > (sensor_pullup_off_value + SENSOR_DIAGNOSTIC_THRESHOLD)) {
+			sensor_open = true;
+		} else {
+			sensor_open = false;
+		}
+	} else {
+		sensor_pullup_off_value = adcGet(adcSensor);
+		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_SET);
+	}
+	is_pullup_on = !is_pullup_on;
 
 	// Check if last PWM duty was long enough for correct feedback reading
 	if (lastPwmSet >= HEATER_FB_PWM_MIN) {
@@ -100,11 +123,19 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
 				(((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OVERLOAD_COEF_A) >> HEATER_COEF_BIT_SHIFT)
 						+ HEATER_OVERLOAD_COEF_B;
 		if (adcGet(adcDriverFb) < heaterOpenLoadLimit) {
-			tip_state = TIP_HEATER_OPEN_LOAD;
+			if (sensor_open) {
+				tip_state = TIP_DISCONNECTED;
+			} else {
+				tip_state = TIP_HEATER_OPEN_LOAD;
+			}
 		} else if (adcGet(adcDriverFb) > heaterOveloadLimit) {
 			tip_state = TIP_HEATER_OVERLOAD;
 		} else {
-			tip_state = TIP_OK;
+			if (sensor_open) {
+				tip_state = TIP_SENSOR_OPEN;
+			} else {
+				tip_state = TIP_OK;
+			}
 		}
 		heaterNoFbCounter = 0; // Reset no feedback counter.
 	} else {
@@ -116,9 +147,11 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
 				*pwmSet = HEATER_FB_PWM_MIN;
 			}
 		}
+		tip_state = tip_state_last;
 	}
 	// Store pwmSet value for next run.
-	lastPwmSet = pwmSet;
+	lastPwmSet = *pwmSet;
+	tip_state_last = tip_state;
 	return tip_state;
 }
 

@@ -10,7 +10,6 @@
 #define SRC_HEATER_H_
 
 #include "stm32f0xx_hal.h"
-#include "stm32f070x6.h"
 #include <stdbool.h>
 
 /// State of heater driver load.
@@ -35,6 +34,7 @@ extern TIM_HandleTypeDef htim14, htim1;
 
 extern volatile bool heaterPwmRisingEdgeFlag;
 extern volatile bool heaterPwmFallingEdgeFlag;
+extern bool is_pullup_on;
 
 HAL_StatusTypeDef heaterDelayStart(uint16_t delay);
 

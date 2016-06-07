@@ -39,9 +39,6 @@
 #include "led.h"
 #include "adc.h"
 #include "magnetometer.h"
-// Includes for Eclipse indexer
-#include "stm32f070x6.h"
-#include "stm32f0xx_hal_rcc.h"
 
 /* USER CODE END Includes */
 
@@ -114,6 +111,8 @@ int main(void) {
 	int32_t errorTempIntegral = 0;
 	/// Value of PWM to be set
 	int32_t pwmSet = 0;
+	/// Previous value of PWM.
+	static int32_t pwmSetLast = 0;
 	/// Proportional gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_P = 1024;
 	/// Integral gain of regulator - from sensor to heater PWM.
@@ -181,7 +180,7 @@ int main(void) {
 		case heaterPwmStateOnBusy:
 			// Heater is on, updating measurements.
 //			debugPrint("{x,T,%u}", x / 10);
-//			debugPrint("{s,T,%u}", adcGet(adcSensor));
+//			debugPrint("%u ", adcGet(adcSensor));
 			//debugPrint("\r\n");
 			adcConvertWhileHeaterOn();
 			// ========== Read and process magnetometer ===========
@@ -205,7 +204,7 @@ int main(void) {
 				currentState = STATE_OK;
 			}
 //			debugPrint("{s,T,%u}", status);
-			debugPrint("{v,T,%u}", magnetometer);
+//			debugPrint("{v,T,%u}", magnetometer);
 			// ==================== Device state machine =====================
 			switch (currentState) {
 			case STATE_OK_LOW_TEMP:
@@ -213,44 +212,55 @@ int main(void) {
 			case STATE_OK_HIGH_TEMP:
 			case STATE_STANDBY:
 				// ========== Heater regulator control. ===========
-				// Calculate desired temperature.
-				if (currentState == STATE_STANDBY) {
-					// Set standby temperature.
-					temperatureSetLsb = SENSOR_ADC_T_STANDBY;
-				} else {
-					// Set temperature set by potentiometer.
-					temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
-							>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
-				}
+				if (!is_pullup_on) {
+					// Only if pullup is off.
+					// Calculate desired temperature.
+					if (currentState == STATE_STANDBY) {
+						// Set standby temperature.
+						temperatureSetLsb = SENSOR_ADC_T_STANDBY;
+					} else {
+						// Set temperature set by potentiometer.
+						temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
+								>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
+					}
 //			debugPrint("{set,T,%u}", temperatureSetLsb);
-				// Save previous value of error.
-				errorTempPrev = errorTemp;
-				// Calculate actual value of temperature error.
-				errorTemp = (int32_t) temperatureSetLsb - (int32_t) adcGet(adcSensor);
-				// Calculate integral of temperature error.
-				if ((errorTempIntegral + errorTemp) > 100) {
-					// Overflow.
-					errorTempIntegral = 100;
-				} else if ((errorTempIntegral + errorTemp) < -100) {
-					// Overflow.
-					errorTempIntegral = -100;
-				} else {
-					errorTempIntegral += errorTemp;
-				}
+					// Save previous value of error.
+					errorTempPrev = errorTemp;
+					// Calculate actual value of temperature error.
+					errorTemp = (int32_t) temperatureSetLsb - (int32_t) adcGet(adcSensor);
+					// Calculate integral of temperature error.
+					if ((errorTempIntegral + errorTemp) > 100) {
+						// Overflow.
+						errorTempIntegral = 100;
+					} else if ((errorTempIntegral + errorTemp) < -100) {
+						// Overflow.
+						errorTempIntegral = -100;
+					} else {
+						errorTempIntegral += errorTemp;
+					}
 //			debugPrint("{e,T,%d}", errorTemp - 100);
 //			debugPrint("{int,T,%d}", errorTempIntegral - 100);
-				pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
-				pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
-				pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
+					pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
+					pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
+					pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
 
-				if (pwmSet < 0) {
-					pwmSet = 0;
-				}
-				if (pwmSet > HEATER_PWM_MAX) {
-					pwmSet = HEATER_PWM_MAX;
+					if (pwmSet < 0) {
+						pwmSet = 0;
+					}
+					if (pwmSet > HEATER_PWM_MAX) {
+						pwmSet = HEATER_PWM_MAX;
+					}
+				} //if (!is_pullup_on)
+				else {
+					pwmSet = pwmSetLast;
 				}
 				// --------- heater diagnostics ---------
 				tip_state = heater_diagnostics(&pwmSet);
+				static tip_state_t tip_state_last = 0;
+//				if (tip_state != tip_state_last) {
+//					debugPrint("%d ", tip_state);
+//				}
+				tip_state_last = tip_state;
 				// --------- Change state if needed. ---------
 				if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
 					currentState = STATE_ERROR_OPEN_LOAD;
@@ -282,6 +292,7 @@ int main(void) {
 			default:
 				break;
 			}
+			pwmSetLast = pwmSet;
 			heaterCmd((uint16_t) pwmSet);
 			ledLoop(currentState);
 			heaterPwmState = heaterPwmStateOnIdle;
@@ -540,7 +551,7 @@ void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 	HAL_GPIO_Init(sensor_pullup_cmd_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pin Output Level */

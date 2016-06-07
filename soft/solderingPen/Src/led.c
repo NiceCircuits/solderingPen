@@ -59,8 +59,7 @@ HAL_StatusTypeDef ledLoop(state_t currentState) {
 		break;
 	case STATE_OK_LOW_TEMP:
 		ledCmd(LED_FULL_BRIGHTNESS * LED_LOW_TEMP_RED_PERCENT / 100,
-				LED_FULL_BRIGHTNESS * (100 - LED_LOW_TEMP_RED_PERCENT) / 100,
-				0);
+				LED_FULL_BRIGHTNESS * (100 - LED_LOW_TEMP_RED_PERCENT) / 100, 0);
 		break;
 	case STATE_STANDBY:
 		cnt += dir;
