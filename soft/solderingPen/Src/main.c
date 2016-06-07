@@ -58,20 +58,20 @@ TIM_HandleTypeDef htim14;
 /// State of heater PWM state machine
 typedef enum {
 	/// Invalid state.
-	heaterPwmStateInvalid,
+	HEATER_PWM_STATE_INVALID,
 	/// Heater is on, waiting for delay to update measurements.
-	heaterPwmStateOnDelay,
+	HEATER_PWM_STATE_ON_DELAY,
 	/// Heater is on, updating measurements.
-	heaterPwmStateOnBusy,
+	HEATER_PWM_STATE_ON_BUSY,
 	/// Heater is on, waiting for turn off.
-	heaterPwmStateOnIdle,
+	HEATER_PWM_STATE_ON_IDLE,
 	/// Heater is off, waiting for delay to update measurements.
-	heaterPwmStateOffDelay,
+	HEATER_PWM_STATE_OFF_DELAY,
 	/// Heater is off, updating measurements.
-	heaterPwmStateOffBusy,
+	HEATER_PWM_STATE_OFF_BUSY,
 	/// Heater is off, waiting for turn on.
-	heaterPwmStateOffIdle
-} heaterPwmState_t;
+	HEATER_PWM_STATE_OFF_IDLE
+} heater_pwm_state_t;
 
 /* USER CODE END PV */
 
@@ -100,19 +100,19 @@ int main(void) {
 
 	/* USER CODE BEGIN 1 */
 	/// State of heater PWM state machine
-	heaterPwmState_t heaterPwmState = heaterPwmStateInvalid;
+	heater_pwm_state_t heater_pwm_state = HEATER_PWM_STATE_INVALID;
 	/// Temperature set
-	uint16_t temperatureSetLsb = 0;
+	uint16_t temperature_set_lsb = 0;
 	/// Error of temperature set
-	int32_t errorTemp = 0;
+	int32_t error_temp_lsb = 0;
 	/// Previous value of error of temperature set
-	int32_t errorTempPrev = 0;
+	int32_t error_temp_last_lsb = 0;
 	/// Integral of error of temperature set over time
-	int32_t errorTempIntegral = 0;
+	int32_t error_temp_integral_lsb = 0;
 	/// Value of PWM to be set
-	int32_t pwmSet = 0;
+	int32_t pwm_set = 0;
 	/// Previous value of PWM.
-	static int32_t pwmSetLast = 0;
+	static int32_t pwm_set_last = 0;
 	/// Proportional gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_P = 1024;
 	/// Integral gain of regulator - from sensor to heater PWM.
@@ -120,7 +120,7 @@ int main(void) {
 	/// Derivative gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_D = 0;
 	/// Current state of device.
-	state_t currentState;
+	state_t current_state;
 	/// Minor error flags
 	error_flags_t error_flags = NO_ERROR_FLAGS;
 	/// Variable for holding status of functions.
@@ -152,11 +152,11 @@ int main(void) {
 	MX_TIM1_Init();
 
 	/* USER CODE BEGIN 2 */
-	adcInit();
-	heaterStartPwm();
-	ledStartPwm();
-	heaterPwmState = heaterPwmStateOffIdle;
-	status = magnetometerInit();
+	adc_init();
+	heater_start_pwm();
+	led_start_pwm();
+	heater_pwm_state = HEATER_PWM_STATE_OFF_IDLE;
+	status = magnetometer_init();
 	if (status != HAL_OK) {
 		error_flags |= MAGNETOMETER_ERROR_FLAG;
 	}
@@ -170,21 +170,21 @@ int main(void) {
 		/* USER CODE BEGIN 3 */
 		// ==================== PWM phase state machine =====================
 //		debugPrint("{s,T,%u}", heaterPwmState * 100);
-		switch (heaterPwmState) {
-		case heaterPwmStateOnDelay:
+		switch (heater_pwm_state) {
+		case HEATER_PWM_STATE_ON_DELAY:
 			// Heater is on, waiting for delay to update measurements.
-			if (heaterDelayElapsed()) {
-				heaterPwmState = heaterPwmStateOnBusy;
+			if (heater_delay_elapsed()) {
+				heater_pwm_state = HEATER_PWM_STATE_ON_BUSY;
 			}
 			break;
-		case heaterPwmStateOnBusy:
+		case HEATER_PWM_STATE_ON_BUSY:
 			// Heater is on, updating measurements.
 //			debugPrint("{x,T,%u}", x / 10);
 //			debugPrint("%u ", adcGet(adcSensor));
 			//debugPrint("\r\n");
-			adcConvertWhileHeaterOn();
+			adc_convert_while_heater_on();
 			// ========== Read and process magnetometer ===========
-			status = magnetometerRead(&magnetometer);
+			status = magnetometer_read(&magnetometer);
 			if (status == HAL_OK) {
 				// Clear error flag.
 				error_flags &= (~MAGNETOMETER_ERROR_FLAG);
@@ -198,64 +198,64 @@ int main(void) {
 			}
 			mag_status_last = status;
 			if (magnetometer > 10000) {
-				currentState = STATE_STANDBY;
+				current_state = STATE_STANDBY;
 			} else {
 				// TODO: move to another place
-				currentState = STATE_OK;
+				current_state = STATE_OK;
 			}
 //			debugPrint("{s,T,%u}", status);
 //			debugPrint("{v,T,%u}", magnetometer);
 			// ==================== Device state machine =====================
-			switch (currentState) {
+			switch (current_state) {
 			case STATE_OK_LOW_TEMP:
 			case STATE_OK:
 			case STATE_OK_HIGH_TEMP:
 			case STATE_STANDBY:
 				// ========== Heater regulator control. ===========
-				if (!is_pullup_on) {
+				if (!heater_is_pullup_on) {
 					// Only if pullup is off.
 					// Calculate desired temperature.
-					if (currentState == STATE_STANDBY) {
+					if (current_state == STATE_STANDBY) {
 						// Set standby temperature.
-						temperatureSetLsb = SENSOR_ADC_T_STANDBY;
+						temperature_set_lsb = SENSOR_ADC_T_STANDBY;
 					} else {
 						// Set temperature set by potentiometer.
-						temperatureSetLsb = (uint16_t) ((((uint32_t) adcGet(adcPotentiometer) * POT_SENS_NUMERATOR)
+						temperature_set_lsb = (uint16_t) ((((uint32_t) adc_get(ADC_POTENTIOMETER) * POT_SENS_NUMERATOR)
 								>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
 					}
 //			debugPrint("{set,T,%u}", temperatureSetLsb);
 					// Save previous value of error.
-					errorTempPrev = errorTemp;
+					error_temp_last_lsb = error_temp_lsb;
 					// Calculate actual value of temperature error.
-					errorTemp = (int32_t) temperatureSetLsb - (int32_t) adcGet(adcSensor);
+					error_temp_lsb = (int32_t) temperature_set_lsb - (int32_t) adc_get(ADC_SENSOR);
 					// Calculate integral of temperature error.
-					if ((errorTempIntegral + errorTemp) > 100) {
+					if ((error_temp_integral_lsb + error_temp_lsb) > 100) {
 						// Overflow.
-						errorTempIntegral = 100;
-					} else if ((errorTempIntegral + errorTemp) < -100) {
+						error_temp_integral_lsb = 100;
+					} else if ((error_temp_integral_lsb + error_temp_lsb) < -100) {
 						// Overflow.
-						errorTempIntegral = -100;
+						error_temp_integral_lsb = -100;
 					} else {
-						errorTempIntegral += errorTemp;
+						error_temp_integral_lsb += error_temp_lsb;
 					}
 //			debugPrint("{e,T,%d}", errorTemp - 100);
 //			debugPrint("{int,T,%d}", errorTempIntegral - 100);
-					pwmSet = errorTemp * REGULATOR_P + REGULATOR_OFFSET;
-					pwmSet += ((errorTempIntegral * REGULATOR_I) / 16);
-					pwmSet += ((REGULATOR_D * (errorTemp - errorTempPrev)) / 16);
+					pwm_set = error_temp_lsb * REGULATOR_P + REGULATOR_OFFSET;
+					pwm_set += ((error_temp_integral_lsb * REGULATOR_I) / 16);
+					pwm_set += ((REGULATOR_D * (error_temp_lsb - error_temp_last_lsb)) / 16);
 
-					if (pwmSet < 0) {
-						pwmSet = 0;
+					if (pwm_set < 0) {
+						pwm_set = 0;
 					}
-					if (pwmSet > HEATER_PWM_MAX) {
-						pwmSet = HEATER_PWM_MAX;
+					if (pwm_set > HEATER_PWM_MAX) {
+						pwm_set = HEATER_PWM_MAX;
 					}
 				} //if (!is_pullup_on)
 				else {
-					pwmSet = pwmSetLast;
+					pwm_set = pwm_set_last;
 				}
 				// --------- heater diagnostics ---------
-				tip_state = heater_diagnostics(&pwmSet);
+				tip_state = heater_diagnostics(&pwm_set);
 				static tip_state_t tip_state_last = 0;
 //				if (tip_state != tip_state_last) {
 //					debugPrint("%d ", tip_state);
@@ -263,18 +263,18 @@ int main(void) {
 				tip_state_last = tip_state;
 				// --------- Change state if needed. ---------
 				if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
-					currentState = STATE_ERROR_OPEN_LOAD;
+					current_state = STATE_ERROR_OPEN_LOAD;
 				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
-					currentState = STATE_ERROR_OVERLOAD;
+					current_state = STATE_ERROR_OVERLOAD;
 				} else if (tip_state == TIP_DISCONNECTED) {
-					currentState = STATE_DISCONNECTED;
-				} else if (currentState != STATE_STANDBY) {
-					if (errorTemp > 30) {
-						currentState = STATE_OK_LOW_TEMP;
-					} else if (errorTemp < -50) {
-						currentState = STATE_OK_HIGH_TEMP;
+					current_state = STATE_DISCONNECTED;
+				} else if (current_state != STATE_STANDBY) {
+					if (error_temp_lsb > 30) {
+						current_state = STATE_OK_LOW_TEMP;
+					} else if (error_temp_lsb < -50) {
+						current_state = STATE_OK_HIGH_TEMP;
 					} else {
-						currentState = STATE_OK;
+						current_state = STATE_OK;
 					}
 				}
 				break;
@@ -292,36 +292,36 @@ int main(void) {
 			default:
 				break;
 			}
-			pwmSetLast = pwmSet;
-			heaterCmd((uint16_t) pwmSet);
-			ledLoop(currentState);
-			heaterPwmState = heaterPwmStateOnIdle;
+			pwm_set_last = pwm_set;
+			heater_cmd((uint16_t) pwm_set);
+			led_loop(current_state);
+			heater_pwm_state = HEATER_PWM_STATE_ON_IDLE;
 			break;
-		case heaterPwmStateOnIdle:
+		case HEATER_PWM_STATE_ON_IDLE:
 			// Heater is on, waiting for turn off.
-			if (heaterPwmFallingEdgeFlag) {
-				heaterPwmFallingEdgeFlag = 0;
-				heaterDelayStart(ADC_HEATER_OFF_DELAY);
-				heaterPwmState = heaterPwmStateOffDelay;
+			if (heater_pwm_falling_edge_flag) {
+				heater_pwm_falling_edge_flag = 0;
+				heater_delay_start(ADC_HEATER_OFF_DELAY);
+				heater_pwm_state = HEATER_PWM_STATE_OFF_DELAY;
 			}
 			break;
-		case heaterPwmStateOffDelay:
+		case HEATER_PWM_STATE_OFF_DELAY:
 			// Heater is off, waiting for delay to update measurements.
-			if (heaterDelayElapsed()) {
-				heaterPwmState = heaterPwmStateOffBusy;
+			if (heater_delay_elapsed()) {
+				heater_pwm_state = HEATER_PWM_STATE_OFF_BUSY;
 			}
 			break;
-		case heaterPwmStateOffBusy:
+		case HEATER_PWM_STATE_OFF_BUSY:
 			// Heater is off, updating measurements.
-			adcConvertWhileHeaterOff();
-			heaterPwmState = heaterPwmStateOffIdle;
+			adc_convert_while_heater_off();
+			heater_pwm_state = HEATER_PWM_STATE_OFF_IDLE;
 			break;
-		case heaterPwmStateOffIdle:
+		case HEATER_PWM_STATE_OFF_IDLE:
 			// Heater is off, waiting for turn on.
-			if (heaterPwmRisingEdgeFlag) {
-				heaterPwmRisingEdgeFlag = 0;
-				heaterDelayStart(ADC_HEATER_ON_DELAY);
-				heaterPwmState = heaterPwmStateOnDelay;
+			if (heater_pwm_rising_edge_flag) {
+				heater_pwm_rising_edge_flag = 0;
+				heater_delay_start(ADC_HEATER_ON_DELAY);
+				heater_pwm_state = HEATER_PWM_STATE_ON_DELAY;
 			}
 			break;
 		default:

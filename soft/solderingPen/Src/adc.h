@@ -10,7 +10,6 @@
 #define SRC_ADC_H_
 
 #include "stm32f0xx_hal.h"
-#include "stm32f070x6.h"
 #include <stdbool.h>
 
 extern ADC_HandleTypeDef hadc;
@@ -19,27 +18,27 @@ extern DMA_HandleTypeDef hdma_adc;
 /// ADC channel select.
 typedef enum {
 	/// Vin sense ADC channel while heater is on.
-	adcVinSenseHeaterOn,
+	ADC_VIN_SENSE_HEATER_ON,
 	/// Heater driver sense feedback ADC channel.
-	adcDriverFb,
+	ADC_DRIVER_FB,
 	/// Temperature setting potentiometer ADC channel.
-	adcPotentiometer,
+	ADC_POTENTIOMETER,
 	/// Vin sense ADC channel while heater is off.
-	adcVinSenseHeaterOff,
+	ADC_VIN_SENSE_HEATER_OFF,
 	/// Tip temperature sensor ADC channel.
-	adcSensor,
+	ADC_SENSOR,
 	/// Number of available ADC channels
-	adcNumberOfChannels
-} adcChannel_t;
+	ADC_NUMBER_OF_CHANNELS
+} adc_channel_t;
 
-HAL_StatusTypeDef adcInit();
+HAL_StatusTypeDef adc_init();
 
-HAL_StatusTypeDef adcConvertWhileHeaterOn();
+HAL_StatusTypeDef adc_convert_while_heater_on();
 
-HAL_StatusTypeDef adcConvertWhileHeaterOff();
+HAL_StatusTypeDef adc_convert_while_heater_off();
 
-uint16_t adcGet(adcChannel_t channel);
+uint16_t adc_get(adc_channel_t channel);
 
-bool adcReady();
+bool adc_is_ready();
 
 #endif /* SRC_ADC_H_ */

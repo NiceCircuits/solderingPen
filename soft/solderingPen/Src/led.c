@@ -13,7 +13,7 @@
  * Start RGB LED PWM timer.
  * @return Status.
  */
-HAL_StatusTypeDef ledStartPwm() {
+HAL_StatusTypeDef led_start_pwm() {
 	HAL_StatusTypeDef status = HAL_OK;
 	status |= HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	status |= HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
@@ -28,7 +28,7 @@ HAL_StatusTypeDef ledStartPwm() {
  * @param b Duty for blue LED.
  * @return Status.
  */
-HAL_StatusTypeDef ledCmd(uint16_t r, uint16_t g, uint16_t b) {
+HAL_StatusTypeDef led_cmd(uint16_t r, uint16_t g, uint16_t b) {
 	htim3.Instance->CCR1 = r;
 	htim3.Instance->CCR2 = g;
 	htim3.Instance->CCR4 = b;
@@ -37,28 +37,28 @@ HAL_StatusTypeDef ledCmd(uint16_t r, uint16_t g, uint16_t b) {
 
 /**
  * LED state machine loop
- * @param currentState Current state of the device.
+ * @param current_state Current state of the device.
  * @return Status.
  */
 // TODO: error status (megnetometer etc.)
-HAL_StatusTypeDef ledLoop(state_t currentState) {
+HAL_StatusTypeDef led_loop(state_t current_state) {
 	/// State during previous loop.
-	static state_t lastState = STATE_INVALID;
+	static state_t last_state = STATE_INVALID;
 	static int32_t cnt = 0;
 	static int32_t dir = 1;
-	if (currentState != lastState) {
+	if (current_state != last_state) {
 		cnt = 0;
 		dir = 0;
 	}
-	switch (currentState) {
+	switch (current_state) {
 	case STATE_OK_HIGH_TEMP:
-		ledCmd(LED_FULL_BRIGHTNESS, 0, 0);
+		led_cmd(LED_FULL_BRIGHTNESS, 0, 0);
 		break;
 	case STATE_OK:
-		ledCmd(0, LED_FULL_BRIGHTNESS, 0);
+		led_cmd(0, LED_FULL_BRIGHTNESS, 0);
 		break;
 	case STATE_OK_LOW_TEMP:
-		ledCmd(LED_FULL_BRIGHTNESS * LED_LOW_TEMP_RED_PERCENT / 100,
+		led_cmd(LED_FULL_BRIGHTNESS * LED_LOW_TEMP_RED_PERCENT / 100,
 				LED_FULL_BRIGHTNESS * (100 - LED_LOW_TEMP_RED_PERCENT) / 100, 0);
 		break;
 	case STATE_STANDBY:
@@ -69,7 +69,7 @@ HAL_StatusTypeDef ledLoop(state_t currentState) {
 		if (cnt <= LED_STANDBY_MIN) {
 			dir = LED_STANDBY_STEP;
 		}
-		ledCmd(0, 0, (uint16_t) cnt);
+		led_cmd(0, 0, (uint16_t) cnt);
 		break;
 	case STATE_DISCONNECTED:
 		cnt += dir;
@@ -79,7 +79,7 @@ HAL_StatusTypeDef ledLoop(state_t currentState) {
 		if (cnt <= LED_DISCONNECTED_MIN) {
 			dir = LED_DISCONNECTED_STEP;
 		}
-		ledCmd(0, (uint16_t) cnt, 0);
+		led_cmd(0, (uint16_t) cnt, 0);
 		break;
 	case STATE_ERROR_OVERLOAD:
 	case STATE_ERROR_OPEN_LOAD:
@@ -91,14 +91,14 @@ HAL_StatusTypeDef ledLoop(state_t currentState) {
 	default:
 		cnt++;
 		if (cnt == LED_ERROR_BLINK_TIME) {
-			ledCmd(LED_FULL_BRIGHTNESS, 0, 0);
+			led_cmd(LED_FULL_BRIGHTNESS, 0, 0);
 		}
 		if (cnt >= LED_ERROR_CYCLE_TIME) {
 			cnt = 0;
-			ledCmd(0, 0, 0);
+			led_cmd(0, 0, 0);
 		}
 		break;
 	}
-	lastState = currentState;
+	last_state = current_state;
 	return HAL_OK;
 }

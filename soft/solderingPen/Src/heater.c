@@ -12,18 +12,18 @@
 #include "debug.h"
 
 /// Flag set when rising edge on heater PWM occurs.
-volatile bool heaterPwmRisingEdgeFlag = 0;
+volatile bool heater_pwm_rising_edge_flag = 0;
 /// Flag set when falling edge on heater PWM occurs.
-volatile bool heaterPwmFallingEdgeFlag = 0;
+volatile bool heater_pwm_falling_edge_flag = 0;
 /// Is pullup on?
-bool is_pullup_on = false;
+bool heater_is_pullup_on = false;
 
 /**
  * Function used to generate precise delay needed for starting ADC and magnetometer.
  * @param delay Delay in unit of 100us.
  * @return Status.
  */
-HAL_StatusTypeDef heaterDelayStart(uint16_t delay) {
+HAL_StatusTypeDef heater_delay_start(uint16_t delay) {
 	HAL_TIM_Base_Stop(&htim1);
 	__HAL_TIM_CLEAR_FLAG(&htim1, TIM_FLAG_UPDATE);
 	if (delay == 0) {
@@ -40,7 +40,7 @@ HAL_StatusTypeDef heaterDelayStart(uint16_t delay) {
  * Check if heater delay is elapsed.
  * @return
  */
-bool heaterDelayElapsed() {
+bool heater_delay_elapsed() {
 	bool result = __HAL_TIM_GET_FLAG(&htim1, TIM_FLAG_UPDATE);
 	if (result) {
 		__HAL_TIM_CLEAR_FLAG(&htim1, TIM_FLAG_UPDATE);
@@ -52,7 +52,7 @@ bool heaterDelayElapsed() {
  * Start heater PWM.
  * @return Status
  */
-HAL_StatusTypeDef heaterStartPwm() {
+HAL_StatusTypeDef heater_start_pwm() {
 	HAL_StatusTypeDef result;
 	// Start heater PWM timer.
 	__HAL_TIM_ENABLE_IT(&htim14, TIM_IT_UPDATE);
@@ -67,7 +67,7 @@ HAL_StatusTypeDef heaterStartPwm() {
  * @param duty New duty.
  * @return Status.
  */
-HAL_StatusTypeDef heaterCmd(uint16_t duty) {
+HAL_StatusTypeDef heater_cmd(uint16_t duty) {
 	if (duty > HEATER_PWM_MAX) {
 		htim14.Instance->CCR1 = HEATER_PWM_MAX;
 		return HAL_ERROR;
@@ -78,17 +78,17 @@ HAL_StatusTypeDef heaterCmd(uint16_t duty) {
 
 /**
  * Calculate heater driver and sensor diagnostics.
- * @param pwmSet Pointer to new PWM value. It will be changed in this function if no proper diagnostics occurred for
+ * @param pwm_set Pointer to new PWM value. It will be changed in this function if no proper diagnostics occurred for
  * a while!
  * @return Diagnostic state.
  */
-tip_state_t heater_diagnostics(int32_t *pwmSet) {
+tip_state_t heater_diagnostics(int32_t *pwm_set) {
 	/// Previous value of set PWM
-	static int32_t lastPwmSet = 0;
+	static int32_t last_pwm_set = 0;
 	/// Limits for open load and overload of heater driver.
-	int32_t heaterOpenLoadLimit, heaterOveloadLimit;
+	int32_t heater_open_load_limit, heater_oveload_limit;
 	/// Counter for time without proper current feedback diagnosis.
-	static uint_fast16_t heaterNoFbCounter = 0;
+	static uint_fast16_t heater_no_fb_cnt = 0;
 	/// Value of sensor input when pullup was off.
 	static uint16_t sensor_pullup_off_value = 0;
 	/// Value of sensor input when pullup was on.
@@ -100,35 +100,35 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
 	/// Is sensor open?
 	static bool sensor_open = false;
 
-	if (is_pullup_on) {
-		sensor_pullup_on_value = adcGet(adcSensor);
+	if (heater_is_pullup_on) {
+		sensor_pullup_on_value = adc_get(ADC_SENSOR);
 		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
-		debugPrint("%d %d\r\n", sensor_pullup_on_value, sensor_pullup_off_value);
+		debug_print("%d %d\r\n", sensor_pullup_on_value, sensor_pullup_off_value);
 		if (sensor_pullup_on_value > (sensor_pullup_off_value + SENSOR_DIAGNOSTIC_THRESHOLD)) {
 			sensor_open = true;
 		} else {
 			sensor_open = false;
 		}
 	} else {
-		sensor_pullup_off_value = adcGet(adcSensor);
+		sensor_pullup_off_value = adc_get(ADC_SENSOR);
 		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_SET);
 	}
-	is_pullup_on = !is_pullup_on;
+	heater_is_pullup_on = !heater_is_pullup_on;
 
 	// Check if last PWM duty was long enough for correct feedback reading
-	if (lastPwmSet >= HEATER_FB_PWM_MIN) {
-		heaterOpenLoadLimit = (((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OPEN_LOAD_COEF_A)
+	if (last_pwm_set >= HEATER_FB_PWM_MIN) {
+		heater_open_load_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OPEN_LOAD_COEF_A)
 				>> HEATER_COEF_BIT_SHIFT) + HEATER_OPEN_LOAD_COEF_B;
-		heaterOveloadLimit =
-				(((int32_t) adcGet(adcVinSenseHeaterOff) * HEATER_OVERLOAD_COEF_A) >> HEATER_COEF_BIT_SHIFT)
+		heater_oveload_limit =
+				(((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OVERLOAD_COEF_A) >> HEATER_COEF_BIT_SHIFT)
 						+ HEATER_OVERLOAD_COEF_B;
-		if (adcGet(adcDriverFb) < heaterOpenLoadLimit) {
+		if (adc_get(ADC_DRIVER_FB) < heater_open_load_limit) {
 			if (sensor_open) {
 				tip_state = TIP_DISCONNECTED;
 			} else {
 				tip_state = TIP_HEATER_OPEN_LOAD;
 			}
-		} else if (adcGet(adcDriverFb) > heaterOveloadLimit) {
+		} else if (adc_get(ADC_DRIVER_FB) > heater_oveload_limit) {
 			tip_state = TIP_HEATER_OVERLOAD;
 		} else {
 			if (sensor_open) {
@@ -137,20 +137,20 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
 				tip_state = TIP_OK;
 			}
 		}
-		heaterNoFbCounter = 0; // Reset no feedback counter.
+		heater_no_fb_cnt = 0; // Reset no feedback counter.
 	} else {
-		heaterNoFbCounter++;
-		if (heaterNoFbCounter >= HEATER_MAX_TIME_NO_FB) {
-			heaterNoFbCounter = 0;
+		heater_no_fb_cnt++;
+		if (heater_no_fb_cnt >= HEATER_MAX_TIME_NO_FB) {
+			heater_no_fb_cnt = 0;
 			// Increase PWM duty for one next cycle to gain correct current sense reading.
-			if (*pwmSet < HEATER_FB_PWM_MIN) {
-				*pwmSet = HEATER_FB_PWM_MIN;
+			if (*pwm_set < HEATER_FB_PWM_MIN) {
+				*pwm_set = HEATER_FB_PWM_MIN;
 			}
 		}
 		tip_state = tip_state_last;
 	}
 	// Store pwmSet value for next run.
-	lastPwmSet = *pwmSet;
+	last_pwm_set = *pwm_set;
 	tip_state_last = tip_state;
 	return tip_state;
 }
@@ -161,7 +161,7 @@ tip_state_t heater_diagnostics(int32_t *pwmSet) {
  */
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim14) {
-		heaterPwmFallingEdgeFlag = true;
+		heater_pwm_falling_edge_flag = true;
 	}
 }
 
@@ -171,7 +171,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim14) {
-		heaterPwmRisingEdgeFlag = true;
+		heater_pwm_rising_edge_flag = true;
 	}
 
 }

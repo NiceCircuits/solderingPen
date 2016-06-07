@@ -10,7 +10,6 @@
 #define SRC_LED_H_
 
 #include "stm32f0xx_hal.h"
-#include "stm32f070x6.h"
 #include "config.h"
 
 extern TIM_HandleTypeDef htim3;
@@ -20,10 +19,10 @@ enum {
 	LED_PWM_MAX = 65535,
 };
 
-HAL_StatusTypeDef ledStartPwm();
+HAL_StatusTypeDef led_start_pwm();
 
-HAL_StatusTypeDef ledCmd(uint16_t r, uint16_t g, uint16_t b);
+HAL_StatusTypeDef led_cmd(uint16_t r, uint16_t g, uint16_t b);
 
-HAL_StatusTypeDef ledLoop(state_t currentState);
+HAL_StatusTypeDef led_loop(state_t currentState);
 
 #endif /* SRC_LED_H_ */

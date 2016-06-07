@@ -8,7 +8,7 @@
 
 #include "config.h"
 
-__attribute__((__section__(".eeprom")))           const eeprom_config_t eeprom_config;
+__attribute__((__section__(".eeprom"))) const eeprom_config_t eeprom_config;
 
 HAL_StatusTypeDef eeprom_config_save(eeprom_config_t *new_config) {
 	HAL_StatusTypeDef result;
@@ -19,7 +19,7 @@ HAL_StatusTypeDef eeprom_config_save(eeprom_config_t *new_config) {
 
 	erase_init.TypeErase = FLASH_TYPEERASE_PAGES;
 	erase_init.NbPages = 1;
-	erase_init.PageAddress = (uint32_t)&eeprom_config;
+	erase_init.PageAddress = (uint32_t) &eeprom_config;
 
 	result = HAL_FLASH_Unlock();
 	if (result != HAL_OK) {
@@ -36,7 +36,7 @@ HAL_StatusTypeDef eeprom_config_save(eeprom_config_t *new_config) {
 	source = (uint32_t*) new_config;
 	destination = (uint32_t*) &eeprom_config;
 	for (i = 0; i < size; i++) {
-		result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)(destination + i), source[i]);
+		result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t) (destination + i), source[i]);
 		if (result != HAL_OK) {
 			return result;
 		}

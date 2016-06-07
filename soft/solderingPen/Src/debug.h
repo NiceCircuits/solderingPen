@@ -16,7 +16,7 @@
 
 extern I2C_HandleTypeDef hi2c1;
 
-HAL_StatusTypeDef debugPrint(const char* format, ...);
+HAL_StatusTypeDef debug_print(const char* format, ...);
 
 HAL_StatusTypeDef debug_print_raw(const char* data, uint16_t len) ;
 

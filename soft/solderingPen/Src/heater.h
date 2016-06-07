@@ -32,18 +32,18 @@ typedef enum {
 
 extern TIM_HandleTypeDef htim14, htim1;
 
-extern volatile bool heaterPwmRisingEdgeFlag;
-extern volatile bool heaterPwmFallingEdgeFlag;
-extern bool is_pullup_on;
+extern volatile bool heater_pwm_rising_edge_flag;
+extern volatile bool heater_pwm_falling_edge_flag;
+extern bool heater_is_pullup_on;
 
-HAL_StatusTypeDef heaterDelayStart(uint16_t delay);
+HAL_StatusTypeDef heater_delay_start(uint16_t delay);
 
-bool heaterDelayElapsed();
+bool heater_delay_elapsed();
 
-HAL_StatusTypeDef heaterStartPwm();
+HAL_StatusTypeDef heater_start_pwm();
 
-HAL_StatusTypeDef heaterCmd(uint16_t duty);
+HAL_StatusTypeDef heater_cmd(uint16_t duty);
 
-tip_state_t heater_diagnostics(int32_t *pwmSet);
+tip_state_t heater_diagnostics(int32_t *pwm_set);
 
 #endif /* SRC_HEATER_H_ */

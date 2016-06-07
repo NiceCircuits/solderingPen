@@ -68,49 +68,49 @@ enum {
 
 /**
  * Read mangetometer register(s)
- * @param registerAddr Address of register to read.
+ * @param register_addr Address of register to read.
  * @param buffer Pointer to buffer to store data.
  * @param size Number of bytes to read.
  * @return Status.
  */
-HAL_StatusTypeDef magnetometerReadRegister(magRegister_t registerAddr, uint8_t* buffer, uint16_t size) {
-	return HAL_I2C_Mem_Read(&hi2c1, MAG_I2C_ADDR, registerAddr, I2C_MEMADD_SIZE_8BIT, buffer, size, MAG_TIMEOUT);
+HAL_StatusTypeDef magnetometer_read_register(magRegister_t register_addr, uint8_t* buffer, uint16_t size) {
+	return HAL_I2C_Mem_Read(&hi2c1, MAG_I2C_ADDR, register_addr, I2C_MEMADD_SIZE_8BIT, buffer, size, MAG_TIMEOUT);
 }
 
 /**
  * Write mangetometer register(s)
- * @param registerAddr Address of register to read.
+ * @param register_addr Address of register to read.
  * @param buffer Pointer to buffer to store data.
  * @param size Number of bytes to read.
  * @return Status.
  */
-HAL_StatusTypeDef magnetometerWriteRegister(magRegister_t registerAddr, uint8_t* buffer, uint16_t size) {
-	return HAL_I2C_Mem_Write(&hi2c1, MAG_I2C_ADDR, registerAddr, I2C_MEMADD_SIZE_8BIT, buffer, size, MAG_TIMEOUT);
+HAL_StatusTypeDef magnetometer_write_register(magRegister_t register_addr, uint8_t* buffer, uint16_t size) {
+	return HAL_I2C_Mem_Write(&hi2c1, MAG_I2C_ADDR, register_addr, I2C_MEMADD_SIZE_8BIT, buffer, size, MAG_TIMEOUT);
 }
 
 /**
  * Initialize MAG3110 magnetometer.
  * @return Status.
  */
-HAL_StatusTypeDef magnetometerInit() {
-	uint8_t dataBuffer[2];
+HAL_StatusTypeDef magnetometer_init() {
+	uint8_t data_buffer[2];
 	uint32_t end_time;
 	HAL_StatusTypeDef result;
 // First read control register - only change of STANDBY mode is allowed if magnetometer is in active state.
-	result = magnetometerReadRegister(MAG_REGISTER_CTRL_REG1, dataBuffer, 1);
+	result = magnetometer_read_register(MAG_REGISTER_CTRL_REG1, data_buffer, 1);
 	if (result != HAL_OK) {
 		magnetometer_error = result;
 		return result;
 	}
-	dataBuffer[0] &= (uint8_t) ~(1 << MAG_CTRL_REG1_AC_BIT); // Set standby mode.
-	result = magnetometerWriteRegister(MAG_REGISTER_CTRL_REG1, dataBuffer, 1); // Write back.
+	data_buffer[0] &= (uint8_t) ~(1 << MAG_CTRL_REG1_AC_BIT); // Set standby mode.
+	result = magnetometer_write_register(MAG_REGISTER_CTRL_REG1, data_buffer, 1); // Write back.
 	if (result != HAL_OK) {
 		magnetometer_error = result;
 		return result;
 	}
 	end_time = HAL_GetTick() + MAG_INIT_TIMEOUT; // Calculate timeout end.
 	do {
-		result = magnetometerReadRegister(MAG_REGISTER_SYSMOD, dataBuffer, 1);
+		result = magnetometer_read_register(MAG_REGISTER_SYSMOD, data_buffer, 1);
 		if (result != HAL_OK) {
 			magnetometer_error = result;
 			return result;
@@ -119,11 +119,11 @@ HAL_StatusTypeDef magnetometerInit() {
 			magnetometer_error = HAL_TIMEOUT;
 			return HAL_TIMEOUT;
 		}
-	} while (dataBuffer[0] != MAG_SYSMOD_STANDBY); // Wait for standby mode to start.
-	dataBuffer[0] = MAG_DR_OS_80Hz | (1 << MAG_CTRL_REG1_AC_BIT); // Enable magnetometer with 80Hz data rate.
+	} while (data_buffer[0] != MAG_SYSMOD_STANDBY); // Wait for standby mode to start.
+	data_buffer[0] = MAG_DR_OS_80Hz | (1 << MAG_CTRL_REG1_AC_BIT); // Enable magnetometer with 80Hz data rate.
 	// Enable auto reset and RAW readings.
-	dataBuffer[1] = (1 << MAG_CTRL_REG2_AUTO_MRST_EN_BIT) | (1 << MAG_CTRL_REG2_RAW_BIT);
-	result = magnetometerWriteRegister(MAG_REGISTER_CTRL_REG1, dataBuffer, 2); // Write configuration.
+	data_buffer[1] = (1 << MAG_CTRL_REG2_AUTO_MRST_EN_BIT) | (1 << MAG_CTRL_REG2_RAW_BIT);
+	result = magnetometer_write_register(MAG_REGISTER_CTRL_REG1, data_buffer, 2); // Write configuration.
 	magnetometer_error = result;
 	return result;
 }
@@ -133,8 +133,8 @@ HAL_StatusTypeDef magnetometerInit() {
  * @param buffer Buffer to store output value. Valid if HAL_OK is returned.
  * @return Status.
  */
-HAL_StatusTypeDef magnetometerRead(uint16_t* buffer) {
-	uint8_t dataBuffer[7];
+HAL_StatusTypeDef magnetometer_read(uint16_t* buffer) {
+	uint8_t data_buffer[7];
 	HAL_StatusTypeDef result;
 	uint16_t data[3], temp;
 	uint_fast8_t i, n;
@@ -144,19 +144,19 @@ HAL_StatusTypeDef magnetometerRead(uint16_t* buffer) {
 		return magnetometer_error;
 	} else {
 
-		result = magnetometerReadRegister(MAG_REGISTER_DR_STATUS, dataBuffer, 7);
+		result = magnetometer_read_register(MAG_REGISTER_DR_STATUS, data_buffer, 7);
 		if (result != HAL_OK) {
 			return result;
 		}
-		if (((dataBuffer[0] >> MAG_DR_STATUS_ZYXDR_BIT) & 1) == 0) {
+		if (((data_buffer[0] >> MAG_DR_STATUS_ZYXDR_BIT) & 1) == 0) {
 			// No new data is available.
-			debugPrint("-\r\n");
+			//debugPrint("-\r\n");
 			return HAL_BUSY;
 		} else {
 			// New data is available.
 			// Read data to second buffer.
 			for (i = 0; i < 3; i++) {
-				data[i] = (uint16_t) imaxabs((int16_t) ((dataBuffer[i * 2 + 1] << 8) + dataBuffer[i * 2 + 2]));
+				data[i] = (uint16_t) imaxabs((int16_t) ((data_buffer[i * 2 + 1] << 8) + data_buffer[i * 2 + 2]));
 				if (data[i] > MAX_XYZ_MAX) {
 					return HAL_ERROR; // Invalid data
 				}
