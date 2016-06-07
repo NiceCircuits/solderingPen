@@ -10,7 +10,6 @@
 #define CONFIG_H_
 
 #include "stm32f0xx_hal.h"
-#include "stm32f070x6.h"
 
 //=============================================================================
 //======================= Settings ============================================
@@ -24,7 +23,9 @@ enum {
 	/// Size of debug UART DMA buffer.
 	DEBUG_BUFFER_SIZE = 256,
 	/// Debug print timeout in ms.
-	DEBUG_TIMEOUT = 100
+	DEBUG_TIMEOUT = 100,
+	/// I2C address to which debug messages are sent (shifted left).
+	DEBUG_I2C_ADDR = 0x20,
 };
 
 //======================= Timing settings ======================================
@@ -99,7 +100,8 @@ enum {
 	HEATER_FB_PWM_MIN = (HEATER_PWM_FULL + 1) * HEATER_PWM_FREQ
 			* (ADC_HEATER_ON_DELAY + 3 /* add some time for calculations to perform correctly */) / HEATER_DELAY_FREQ,
 	/// Maximum allowed time without correct feedback reading - set to 0.5s
-	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ/2,
+	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ / 2,
+	SENSOR_DIAGNOSTIC_THRESHOLD = 250,
 };
 
 //======================= LED settings ========================================

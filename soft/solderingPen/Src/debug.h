@@ -14,15 +14,10 @@
 #include <stdbool.h>
 #include "stm32f0xx_hal.h"
 
-extern UART_HandleTypeDef huart2;
-extern DMA_HandleTypeDef hdma_usart2_tx;
+extern I2C_HandleTypeDef hi2c1;
 
+HAL_StatusTypeDef debugPrint(const char* format, ...);
 
-/**
- * Prints to debug UART. Uses printf format and variable list of arguments.
- * @param format printf-like format string.
- * @return 0 if OK
- */
-uint_fast8_t debugPrint(const char* format, ...);
+HAL_StatusTypeDef debug_print_raw(const char* data, uint16_t len) ;
 
 #endif /* DEBUG_H_ */
