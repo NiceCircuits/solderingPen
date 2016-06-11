@@ -120,7 +120,7 @@ int main(void) {
 	/// Derivative gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_D = 0;
 	/// Current state of device.
-	state_t current_state;
+	state_t current_state = STATE_OK;
 	/// Minor error flags
 	error_flags_t error_flags = NO_ERROR_FLAGS;
 	/// Variable for holding status of functions.
@@ -131,6 +131,8 @@ int main(void) {
 	uint16_t magnetometer;
 	/// State of heater driver load.
 	tip_state_t tip_state = TIP_OK;
+	/// Flag for indicating invalid diagnostics (too low PWM)
+	bool tip_diagnostics_invalid_flag = false;
 
 	/* USER CODE END 1 */
 
@@ -169,7 +171,6 @@ int main(void) {
 
 		/* USER CODE BEGIN 3 */
 		// ==================== PWM phase state machine =====================
-//		debugPrint("{s,T,%u}", heaterPwmState * 100);
 		switch (heater_pwm_state) {
 		case HEATER_PWM_STATE_ON_DELAY:
 			// Heater is on, waiting for delay to update measurements.
@@ -179,9 +180,6 @@ int main(void) {
 			break;
 		case HEATER_PWM_STATE_ON_BUSY:
 			// Heater is on, updating measurements.
-//			debugPrint("{x,T,%u}", x / 10);
-//			debugPrint("%u ", adcGet(adcSensor));
-			//debugPrint("\r\n");
 			adc_convert_while_heater_on();
 			// ========== Read and process magnetometer ===========
 			status = magnetometer_read(&magnetometer);
@@ -197,14 +195,8 @@ int main(void) {
 				}
 			}
 			mag_status_last = status;
-			if (magnetometer > 10000) {
-				current_state = STATE_STANDBY;
-			} else {
-				// TODO: move to another place
-				current_state = STATE_OK;
-			}
-//			debugPrint("{s,T,%u}", status);
-//			debugPrint("{v,T,%u}", magnetometer);
+			// --------- heater diagnostics ---------
+			tip_state = heater_diagnostics(&tip_diagnostics_invalid_flag, pwm_set_last);
 			// ==================== Device state machine =====================
 			switch (current_state) {
 			case STATE_OK_LOW_TEMP:
@@ -223,7 +215,6 @@ int main(void) {
 						temperature_set_lsb = (uint16_t) ((((uint32_t) adc_get(ADC_POTENTIOMETER) * POT_SENS_NUMERATOR)
 								>> POT_SENS_DENOMINATOR_BIT_SHIFT) + POT_SENS_ADDEND);
 					}
-//			debugPrint("{set,T,%u}", temperatureSetLsb);
 					// Save previous value of error.
 					error_temp_last_lsb = error_temp_lsb;
 					// Calculate actual value of temperature error.
@@ -238,8 +229,6 @@ int main(void) {
 					} else {
 						error_temp_integral_lsb += error_temp_lsb;
 					}
-//			debugPrint("{e,T,%d}", errorTemp - 100);
-//			debugPrint("{int,T,%d}", errorTempIntegral - 100);
 					pwm_set = error_temp_lsb * REGULATOR_P + REGULATOR_OFFSET;
 					pwm_set += ((error_temp_integral_lsb * REGULATOR_I) / 16);
 					pwm_set += ((REGULATOR_D * (error_temp_lsb - error_temp_last_lsb)) / 16);
@@ -254,44 +243,96 @@ int main(void) {
 				else {
 					pwm_set = pwm_set_last;
 				}
-				// --------- heater diagnostics ---------
-				tip_state = heater_diagnostics(&pwm_set);
-				static tip_state_t tip_state_last = 0;
-//				if (tip_state != tip_state_last) {
-//					debugPrint("%d ", tip_state);
-//				}
-				tip_state_last = tip_state;
+				if (tip_diagnostics_invalid_flag) {
+					if (pwm_set < HEATER_FB_PWM_MIN) {
+						pwm_set = HEATER_FB_PWM_MIN;
+					}
+					tip_diagnostics_invalid_flag = false;
+				}
 				// --------- Change state if needed. ---------
-				if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+				if (adc_get(ADC_VIN_SENSE_HEATER_OFF) > VIN_MAX_LSB) {
+					current_state = STATE_HIGH_SUPPLY;
+				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
+					current_state = STATE_LOW_SUPPLY;
+				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
 					current_state = STATE_ERROR_OPEN_LOAD;
 				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
 					current_state = STATE_ERROR_OVERLOAD;
 				} else if (tip_state == TIP_DISCONNECTED) {
 					current_state = STATE_DISCONNECTED;
-				} else if (current_state != STATE_STANDBY) {
-					if (error_temp_lsb > 30) {
-						current_state = STATE_OK_LOW_TEMP;
-					} else if (error_temp_lsb < -50) {
-						current_state = STATE_OK_HIGH_TEMP;
-					} else {
-						current_state = STATE_OK;
-					}
+				} else if (magnetometer > 10000) {
+					current_state = STATE_STANDBY;
+				} else if (error_temp_lsb > 30) {
+					current_state = STATE_OK_LOW_TEMP;
+				} else if (error_temp_lsb < -50) {
+					current_state = STATE_OK_HIGH_TEMP;
+				} else {
+					current_state = STATE_OK;
+
 				}
 				break;
 			case STATE_ERROR_LOW_TEMP:
+				pwm_set = 0;
 				break;
 			case STATE_LOW_SUPPLY:
 			case STATE_HIGH_SUPPLY:
+				pwm_set = 0;
+				// --------- Change state if needed. ---------
+				if (adc_get(ADC_VIN_SENSE_HEATER_OFF) > VIN_MAX_LSB) {
+					current_state = STATE_HIGH_SUPPLY;
+				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
+					current_state = STATE_LOW_SUPPLY;
+				} else {
+					current_state = STATE_OK;
+				}
 				break;
 			case STATE_DISCONNECTED:
+				pwm_set = 0;
+				if (tip_diagnostics_invalid_flag) {
+					pwm_set = HEATER_FB_PWM_MIN;
+					tip_diagnostics_invalid_flag = false;
+				}
+				// --------- Change state if needed. ---------
+				if (adc_get(ADC_VIN_SENSE_HEATER_OFF) > VIN_MAX_LSB) {
+					current_state = STATE_HIGH_SUPPLY;
+				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
+					current_state = STATE_LOW_SUPPLY;
+				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+					current_state = STATE_ERROR_OPEN_LOAD;
+				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
+					current_state = STATE_ERROR_OVERLOAD;
+				} else if (tip_state == TIP_DISCONNECTED) {
+					current_state = STATE_DISCONNECTED;
+				} else {
+					current_state = STATE_OK;
+				}
 				break;
 			case STATE_ERROR_OVERLOAD:
 			case STATE_ERROR_OPEN_LOAD:
+				pwm_set = 0;
+				tip_state = heater_diagnostics(&pwm_set);
+				// --------- Change state if needed. ---------
+				if (adc_get(ADC_VIN_SENSE_HEATER_OFF) > VIN_MAX_LSB) {
+					current_state = STATE_HIGH_SUPPLY;
+				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
+					current_state = STATE_LOW_SUPPLY;
+				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+					current_state = STATE_ERROR_OPEN_LOAD;
+				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
+					current_state = STATE_ERROR_OVERLOAD;
+				} else if (tip_state == TIP_DISCONNECTED) {
+					current_state = STATE_DISCONNECTED;
+				} else {
+					current_state = STATE_OK;
+				}
+				break;
 			case STATE_ERROR_HIGH_TEMP:
 			case STATE_INVALID:
 			default:
+				pwm_set = 0;
 				break;
 			}
+			debug_print_raw(&current_state, 1);
 			pwm_set_last = pwm_set;
 			heater_cmd((uint16_t) pwm_set);
 			led_loop(current_state);
@@ -421,7 +462,7 @@ void MX_ADC_Init(void) {
 void MX_I2C1_Init(void) {
 
 	hi2c1.Instance = I2C1;
-	hi2c1.Init.Timing = 0x00000A17;
+	hi2c1.Init.Timing = 0x2000090E;
 	hi2c1.Init.OwnAddress1 = 0;
 	hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
 	hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;

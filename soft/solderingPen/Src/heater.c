@@ -78,13 +78,12 @@ HAL_StatusTypeDef heater_cmd(uint16_t duty) {
 
 /**
  * Calculate heater driver and sensor diagnostics.
- * @param pwm_set Pointer to new PWM value. It will be changed in this function if no proper diagnostics occurred for
- * a while!
+ * @param tip_diagnostics_invalid_flag Set if PWM duty is too low for some time. Indicates that it must be increased for
+ * one cycle.
+ * @param last_pwm_set Last PWM value.
  * @return Diagnostic state.
  */
-tip_state_t heater_diagnostics(int32_t *pwm_set) {
-	/// Previous value of set PWM
-	static int32_t last_pwm_set = 0;
+tip_state_t heater_diagnostics(bool *tip_diagnostics_invalid_flag, int32_t last_pwm_set) {
 	/// Limits for open load and overload of heater driver.
 	int32_t heater_open_load_limit, heater_oveload_limit;
 	/// Counter for time without proper current feedback diagnosis.
@@ -103,7 +102,6 @@ tip_state_t heater_diagnostics(int32_t *pwm_set) {
 	if (heater_is_pullup_on) {
 		sensor_pullup_on_value = adc_get(ADC_SENSOR);
 		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
-		debug_print("%d %d\r\n", sensor_pullup_on_value, sensor_pullup_off_value);
 		if (sensor_pullup_on_value > (sensor_pullup_off_value + SENSOR_DIAGNOSTIC_THRESHOLD)) {
 			sensor_open = true;
 		} else {
@@ -119,9 +117,8 @@ tip_state_t heater_diagnostics(int32_t *pwm_set) {
 	if (last_pwm_set >= HEATER_FB_PWM_MIN) {
 		heater_open_load_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OPEN_LOAD_COEF_A)
 				>> HEATER_COEF_BIT_SHIFT) + HEATER_OPEN_LOAD_COEF_B;
-		heater_oveload_limit =
-				(((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OVERLOAD_COEF_A) >> HEATER_COEF_BIT_SHIFT)
-						+ HEATER_OVERLOAD_COEF_B;
+		heater_oveload_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OVERLOAD_COEF_A)
+				>> HEATER_COEF_BIT_SHIFT) + HEATER_OVERLOAD_COEF_B;
 		if (adc_get(ADC_DRIVER_FB) < heater_open_load_limit) {
 			if (sensor_open) {
 				tip_state = TIP_DISCONNECTED;
@@ -142,15 +139,10 @@ tip_state_t heater_diagnostics(int32_t *pwm_set) {
 		heater_no_fb_cnt++;
 		if (heater_no_fb_cnt >= HEATER_MAX_TIME_NO_FB) {
 			heater_no_fb_cnt = 0;
-			// Increase PWM duty for one next cycle to gain correct current sense reading.
-			if (*pwm_set < HEATER_FB_PWM_MIN) {
-				*pwm_set = HEATER_FB_PWM_MIN;
-			}
+			*tip_diagnostics_invalid_flag = true;
 		}
 		tip_state = tip_state_last;
 	}
-	// Store pwmSet value for next run.
-	last_pwm_set = *pwm_set;
 	tip_state_last = tip_state;
 	return tip_state;
 }

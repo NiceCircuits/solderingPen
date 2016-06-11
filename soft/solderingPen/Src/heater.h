@@ -44,6 +44,6 @@ HAL_StatusTypeDef heater_start_pwm();
 
 HAL_StatusTypeDef heater_cmd(uint16_t duty);
 
-tip_state_t heater_diagnostics(int32_t *pwm_set);
+tip_state_t heater_diagnostics(bool *tip_diagnostics_invalid_flag, int32_t last_pwm_set);
 
 #endif /* SRC_HEATER_H_ */

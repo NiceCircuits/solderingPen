@@ -102,6 +102,15 @@ enum {
 	/// Maximum allowed time without correct feedback reading - set to 0.5s
 	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ / 2,
 	SENSOR_DIAGNOSTIC_THRESHOLD = 250,
+	// Resistors in power supply measurement circuit.
+	R_VIN_H_KOHM = 100,
+	R_VIN_L_KOHM = 10,
+	// Minimum an maximum Vin in mV, plus some  tollerances
+	VIN_MIN_MV = 6000 * 100 / 105,
+	VIN_MAX_MV = 20000 * 105 / 100,
+	// ADC limits for Vin
+	VIN_MIN_LSB = ADC_FS * VIN_MIN_MV * R_VIN_L_KOHM / (R_VIN_L_KOHM + R_VIN_H_KOHM) / (SUPPLY_VOLTAGE_UV / 1000),
+	VIN_MAX_LSB = ADC_FS * VIN_MAX_MV * R_VIN_L_KOHM / (R_VIN_L_KOHM + R_VIN_H_KOHM) / (SUPPLY_VOLTAGE_UV / 1000),
 };
 
 //======================= LED settings ========================================
