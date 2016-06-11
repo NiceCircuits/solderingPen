@@ -33,8 +33,7 @@ HAL_StatusTypeDef debug_print(const char* format, ...) {
 	len = len + (uint16_t) vsnprintf(debug_usart_buffer + len, (size_t) (DEBUG_BUFFER_SIZE - len - 2), format, arglist);
 	va_end(arglist);
 	// setup I2C transfer
-	HAL_I2C_Master_Transmit(&hi2c1, DEBUG_I2C_ADDR, debug_usart_buffer, len, DEBUG_TIMEOUT);
-	return HAL_OK;
+	return HAL_I2C_Master_Transmit(&hi2c1, DEBUG_I2C_ADDR, debug_usart_buffer, len, DEBUG_TIMEOUT);
 }
 
 /**
@@ -44,8 +43,7 @@ HAL_StatusTypeDef debug_print(const char* format, ...) {
  * @return Status.
  */
 HAL_StatusTypeDef debug_print_raw(const char* data, uint16_t len) {
-	HAL_I2C_Master_Transmit(&hi2c1, DEBUG_I2C_ADDR, data, len, DEBUG_TIMEOUT);
-	return HAL_OK;
+	return HAL_I2C_Master_Transmit(&hi2c1, DEBUG_I2C_ADDR, data, len, DEBUG_TIMEOUT);
 }
 
 #else // DEBUG_ENABLE

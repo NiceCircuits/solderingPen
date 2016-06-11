@@ -10,7 +10,8 @@
 #include "adc.h"
 #include "debug.h"
 
-uint16_t adc_buffer[ADC_NUMBER_OF_CHANNELS];
+uint16_t adc_buffer[ADC_NUMBER_OF_CHANNELS] = { (VIN_MIN_LSB + VIN_MAX_LSB) / 2, 0, 0, (VIN_MIN_LSB + VIN_MAX_LSB) / 2,
+		0 };
 
 /**
  * Additional initialization of ADC.
