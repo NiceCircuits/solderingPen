@@ -50,3 +50,12 @@
 /soft/solderingPen/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f078xx.h
 /soft/solderingPen/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f091xc.h
 /soft/solderingPen/Drivers/CMSIS/Device/ST/STM32F0xx/Include/stm32f098xx.h
+/AN4657-STM32Cube_IAP_using_UART
+/soft/test_bootloader_F072
+/soft/bootloader_test_F072.ioc
+/pc/bootloader/__pycache__
+/pc/bootloader/build
+/pc/bootloader/test.py
+*.log
+/doc/img/*.net
+*.raw
