@@ -15,6 +15,7 @@
 #include "config.h"
 #include "stm32f0xx_hal.h"
 #include "software_uart.h"
+#include "led.h"
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
@@ -22,18 +23,12 @@ DMA_HandleTypeDef hdma_adc;
 
 CRC_HandleTypeDef hcrc;
 
-TIM_HandleTypeDef htim3;
-
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_ADC_Init(void);
-static void MX_TIM3_Init(void);
 static void MX_CRC_Init(void);
-
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 int main(void) {
 
@@ -46,14 +41,23 @@ int main(void) {
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_ADC_Init();
-  MX_TIM3_Init();
   MX_CRC_Init();
+  led_init();
   software_uart_init();
 
+  uint8_t data[] =
+      "Bootloader design - software\
+Supported commands\
+Get information\
+Bootloader version\
+Application version (info block in application flash)\
+Chip ID\
+Some reserved bytes";
   /* Main loop-----------------------------------------------------------------*/
   while (1) {
+    software_uart_send(data, sizeof(data));
+    HAL_Delay(100);
   }
 }
 
@@ -163,63 +167,6 @@ static void MX_CRC_Init(void) {
   if (HAL_CRC_Init(&hcrc) != HAL_OK) {
     Error_Handler();
   }
-
-}
-
-/* TIM3 init function */
-static void MX_TIM3_Init(void) {
-
-  TIM_MasterConfigTypeDef sMasterConfig;
-  TIM_OC_InitTypeDef sConfigOC;
-
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK) {
-    Error_Handler();
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) {
-    Error_Handler();
-  }
-
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
-    Error_Handler();
-  }
-
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK) {
-    Error_Handler();
-  }
-
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_4) != HAL_OK) {
-    Error_Handler();
-  }
-
-  HAL_TIM_MspPostInit(&htim3);
-
-}
-
-/** 
- * Enable DMA controller clock
- */
-static void MX_DMA_Init(void) {
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE()
-  ;
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 

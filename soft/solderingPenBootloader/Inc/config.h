@@ -32,9 +32,14 @@
 #define led_B_cmd_GPIO_Port GPIOB
 #define DELAY_TIMER TIM14
 
-/* Public declarations -------------------------------------------------------*/
+/// Default core frequency
+#define CORE_FREQ  48000000
+/// Baud rate of bootloader
+#define BAUDRATE  1200
+
+/* Public declarations for main.c --------------------------------------------*/
 
 void Error_Handler(void);
-
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 #endif
