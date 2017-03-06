@@ -35,7 +35,9 @@
 /// Default core frequency
 #define CORE_FREQ  48000000
 /// Baud rate of bootloader
-#define BAUDRATE  1200
+#define UART_BAUDRATE  1200
+/// Timeout for UART reception
+#define UART_TIMEOUT_MS 2000
 
 /* Public declarations for main.c --------------------------------------------*/
 

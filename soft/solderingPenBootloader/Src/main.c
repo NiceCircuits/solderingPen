@@ -46,18 +46,25 @@ int main(void) {
   led_init();
   software_uart_init();
 
-  uint8_t data[] =
-      "Bootloader design - software\
-Supported commands\
-Get information\
-Bootloader version\
-Application version (info block in application flash)\
-Chip ID\
-Some reserved bytes";
+  uint8_t data[256];
+  HAL_StatusTypeDef result;
   /* Main loop-----------------------------------------------------------------*/
+  GPIO_InitTypeDef GPIO_InitStruct;
+  /*Configure GPIO pins : sensor_pullup_cmd_Pin driver_cmd_Pin */
+  GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   while (1) {
-    software_uart_send(data, sizeof(data));
-    HAL_Delay(100);
+    result = software_uart_receive(data, 4);
+    if (HAL_OK == result) {
+      software_uart_send(data, 4);
+    } else if (HAL_ERROR == result) {
+      software_uart_send("error\r\n", 7);
+    } else if (HAL_TIMEOUT == result) {
+      software_uart_send("t-out\r\n", 7);
+    }
   }
 }
 
