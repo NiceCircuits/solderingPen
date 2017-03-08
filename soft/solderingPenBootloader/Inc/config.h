@@ -38,6 +38,25 @@
 #define UART_BAUDRATE  1200
 /// Timeout for UART reception
 #define UART_TIMEOUT_MS 2000
+/// Address of first byte of application
+#define APP_START_ADDR 0x08003000
+/// Size of application info block
+#define APP_INFO_SIZE 1024
+/// Address of application info block in Flash
+#define APP_INFO_ADDR (FLASH_BANK1_END + 1 - APP_INFO_SIZE)
+/// Block size of data to write
+#define WRITE_BLOCK_SIZE 128
+/// Length of CRC in bytes
+#define CRC_SIZE 4
+
+/// Bootloader commands
+enum {
+  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w'
+};
+/// Bootloader responses
+enum {
+  RESPONSE_OK = 'o', RESPONSE_ERROR = 'e'
+};
 
 /* Public declarations for main.c --------------------------------------------*/
 

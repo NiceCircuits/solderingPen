@@ -46,8 +46,15 @@ int main(void) {
   led_init();
   software_uart_init();
 
-  uint8_t data[256];
+  uint8_t data[WRITE_BLOCK_SIZE + CRC_SIZE];
+  uint32_t address = APP_START_ADDR;
   HAL_StatusTypeDef result;
+  uint32_t page_err, cnt, crc;
+  uint8_t status, response;
+
+  FLASH_EraseInitTypeDef erase_init = { .TypeErase = FLASH_TYPEERASE_PAGES, .PageAddress = APP_START_ADDR, .NbPages =
+      (FLASH_BANK1_END + 1 - APP_START_ADDR) / FLASH_PAGE_SIZE };
+
   /* Main loop-----------------------------------------------------------------*/
   GPIO_InitTypeDef GPIO_InitStruct;
   /*Configure GPIO pins : sensor_pullup_cmd_Pin driver_cmd_Pin */
@@ -57,13 +64,50 @@ int main(void) {
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   while (1) {
-    result = software_uart_receive(data, 4);
-    if (HAL_OK == result) {
-      software_uart_send(data, 4);
-    } else if (HAL_ERROR == result) {
-      software_uart_send("error\r\n", 7);
-    } else if (HAL_TIMEOUT == result) {
-      software_uart_send("t-out\r\n", 7);
+    result = software_uart_receive(data, 1);
+    if (result == HAL_OK) {
+      if (data[0] == COMMAND_WRITE) {
+        // Confirm
+        response = RESPONSE_OK;
+        software_uart_send(&response, 1);
+        // Get data block
+        response = RESPONSE_ERROR;
+        status = software_uart_receive(data, WRITE_BLOCK_SIZE + CRC_SIZE);
+        // Check if transmission is OK and check CRC
+        if (status == HAL_OK) {
+          crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) data, WRITE_BLOCK_SIZE);
+          if (crc == *(uint32_t*) (data+WRITE_BLOCK_SIZE)) {
+#if 1
+            HAL_FLASH_Unlock();
+            for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4) {
+              status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address + cnt, *((uint32_t*) (data + cnt)));
+            }
+            HAL_FLASH_Lock();
+#else
+            status = HAL_OK;
+#endif
+            if (status == HAL_OK) {
+              address += WRITE_BLOCK_SIZE;
+              response = RESPONSE_OK;
+            }
+          }
+        }
+        software_uart_send(&response, 1);
+
+      } else if (data[0] == COMMAND_ERASE) {
+        HAL_FLASH_Unlock();
+        status = HAL_FLASHEx_Erase(&erase_init, &page_err);
+        HAL_FLASH_Lock();
+        if (status == HAL_OK) {
+          response = RESPONSE_OK;
+        } else {
+          response = RESPONSE_ERROR;
+        }
+        software_uart_send(&response, 1);
+      } else {
+        response = RESPONSE_ERROR;
+        software_uart_send(&response, 1);
+      }
     }
   }
 }
