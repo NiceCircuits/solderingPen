@@ -51,7 +51,7 @@
 
 /// Bootloader commands
 enum {
-  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w'
+  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w', COMMAND_READ_INFO = 'i'
 };
 /// Bootloader responses
 enum {

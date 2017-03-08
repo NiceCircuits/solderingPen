@@ -20,7 +20,6 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
-
 CRC_HandleTypeDef hcrc;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -51,6 +50,8 @@ int main(void) {
   HAL_StatusTypeDef result;
   uint32_t page_err, cnt, crc;
   uint8_t status, response;
+  /// Pointer to data to be read
+  uint8_t* read_p;
 
   FLASH_EraseInitTypeDef erase_init = { .TypeErase = FLASH_TYPEERASE_PAGES, .PageAddress = APP_START_ADDR, .NbPages =
       (FLASH_BANK1_END + 1 - APP_START_ADDR) / FLASH_PAGE_SIZE };
@@ -65,9 +66,11 @@ int main(void) {
 
   while (1) {
     result = software_uart_receive(data, 1);
+    response = RESPONSE_ERROR; // for now
     if (result == HAL_OK) {
-      if (data[0] == COMMAND_WRITE) {
-        // Confirm
+      /* Write flash --------------------------------------------------------------*/
+      // check write command and if write possible
+      if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE))) {
         response = RESPONSE_OK;
         software_uart_send(&response, 1);
         // Get data block
@@ -76,40 +79,44 @@ int main(void) {
         // Check if transmission is OK and check CRC
         if (status == HAL_OK) {
           crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) data, WRITE_BLOCK_SIZE);
-          if (crc == *(uint32_t*) (data+WRITE_BLOCK_SIZE)) {
-#if 1
+          if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE)) {
             HAL_FLASH_Unlock();
             for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4) {
               status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address + cnt, *((uint32_t*) (data + cnt)));
-            }
+            } // for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4)
             HAL_FLASH_Lock();
-#else
-            status = HAL_OK;
-#endif
             if (status == HAL_OK) {
               address += WRITE_BLOCK_SIZE;
               response = RESPONSE_OK;
-            }
-          }
-        }
-        software_uart_send(&response, 1);
-
-      } else if (data[0] == COMMAND_ERASE) {
+            } // if (status == HAL_OK)
+          } // if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE))
+        } // if (status == HAL_OK)
+      } // if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE)))
+      /* Erase flash --------------------------------------------------------------*/
+      else if (data[0] == COMMAND_ERASE) {
         HAL_FLASH_Unlock();
         status = HAL_FLASHEx_Erase(&erase_init, &page_err);
         HAL_FLASH_Lock();
         if (status == HAL_OK) {
           response = RESPONSE_OK;
         } else {
-          response = RESPONSE_ERROR;
+          //response = RESPONSE_ERROR;
         }
-        software_uart_send(&response, 1);
-      } else {
-        response = RESPONSE_ERROR;
-        software_uart_send(&response, 1);
+      } // else if (data[0] == COMMAND_ERASE)
+      /* Read application info block ----------------------------------------------*/
+      else if (data[0] == COMMAND_READ_INFO) {
+        read_p = (uint8_t*) APP_INFO_ADDR;
+        crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) read_p, APP_INFO_SIZE);
+        software_uart_send(read_p, APP_INFO_SIZE);
+        software_uart_send((uint8_t*) &crc, 4);
+      } // else if (data[0] == COMMAND_READ_INFO)
+      /* Invalid command ----------------------------------------------------------*/
+      else {
+        //response = RESPONSE_ERROR;
       }
-    }
-  }
+      software_uart_send(&response, 1);
+    } // if (result == HAL_OK)
+  } // while (1)
 }
 
 /** System Clock Configuration
