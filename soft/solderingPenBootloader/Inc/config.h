@@ -48,10 +48,12 @@
 #define WRITE_BLOCK_SIZE 128
 /// Length of CRC in bytes
 #define CRC_SIZE 4
+/// Threshold for voltage on sensor_sig to detect bootloader
+#define SENSOR_BOOT_THRESHOLD ((uint16_t)(0.9 * 4096))
 
 /// Bootloader commands
 enum {
-  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w', COMMAND_READ_INFO = 'i'
+  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w', COMMAND_READ_INFO = 'i', COMMAND_RUN_APP = 'r'
 };
 /// Bootloader responses
 enum {

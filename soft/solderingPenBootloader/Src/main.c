@@ -28,6 +28,13 @@ void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC_Init(void);
 static void MX_CRC_Init(void);
+/// Start application
+void run_application();
+
+/* Private function bodies ---------------------------------------------------*/
+void run_application() {
+// TODO
+}
 
 int main(void) {
 
@@ -45,77 +52,112 @@ int main(void) {
   led_init();
   software_uart_init();
 
+  /// Bootloader data buffer
   uint8_t data[WRITE_BLOCK_SIZE + CRC_SIZE];
+  /// Address to save data in Flash
   uint32_t address = APP_START_ADDR;
+  /// Result of operations
   HAL_StatusTypeDef result;
-  uint32_t page_err, cnt, crc;
-  uint8_t status, response;
+  /// Error information for erase operation
+  uint32_t page_err;
+  /// Default counter
+  uint32_t cnt;
+  /// Calculated CRC value
+  uint32_t crc;
+  /// Status to return to UART
+  uint8_t response;
   /// Pointer to data to be read
   uint8_t* read_p;
+  /// Initialization data for GPIO
+  GPIO_InitTypeDef GPIO_InitStruct;
+  /// Value from ADC
+  uint32_t adc;
 
+  /// Initialization structure for Flash erase
   FLASH_EraseInitTypeDef erase_init = { .TypeErase = FLASH_TYPEERASE_PAGES, .PageAddress = APP_START_ADDR, .NbPages =
       (FLASH_BANK1_END + 1 - APP_START_ADDR) / FLASH_PAGE_SIZE };
 
-  /* Main loop-----------------------------------------------------------------*/
-  GPIO_InitTypeDef GPIO_InitStruct;
-  /*Configure GPIO pins : sensor_pullup_cmd_Pin driver_cmd_Pin */
+  // Save init values to structure
   GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 
+  /* Main loop-----------------------------------------------------------------*/
   while (1) {
-    result = software_uart_receive(data, 1);
-    response = RESPONSE_ERROR; // for now
-    if (result == HAL_OK) {
-      /* Write flash --------------------------------------------------------------*/
-      // check write command and if write possible
-      if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE))) {
-        response = RESPONSE_OK;
-        software_uart_send(&response, 1);
-        // Get data block
-        response = RESPONSE_ERROR;
-        status = software_uart_receive(data, WRITE_BLOCK_SIZE + CRC_SIZE);
-        // Check if transmission is OK and check CRC
-        if (status == HAL_OK) {
-          crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) data, WRITE_BLOCK_SIZE);
-          if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE)) {
-            HAL_FLASH_Unlock();
-            for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4) {
-              status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address + cnt, *((uint32_t*) (data + cnt)));
-            } // for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4)
-            HAL_FLASH_Lock();
-            if (status == HAL_OK) {
-              address += WRITE_BLOCK_SIZE;
-              response = RESPONSE_OK;
-            } // if (status == HAL_OK)
-          } // if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE))
-        } // if (status == HAL_OK)
-      } // if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE)))
-      /* Erase flash --------------------------------------------------------------*/
-      else if (data[0] == COMMAND_ERASE) {
-        HAL_FLASH_Unlock();
-        status = HAL_FLASHEx_Erase(&erase_init, &page_err);
-        HAL_FLASH_Lock();
-        if (status == HAL_OK) {
+    /* Check if bootloader cable is connected -----------------------------------*/
+    // Config sensor_pullup_cmd_Pin as output and set it low
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOA, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
+    // delay a bit and read ADC from sensor_sig_Pin
+    HAL_Delay(10);
+    HAL_ADC_Start(&hadc);
+    adc = HAL_ADC_GetValue(&hadc);
+    // If voltage on sensor_sig pin is above threshold, start bootloader
+    if (adc >= SENSOR_BOOT_THRESHOLD) {
+      // Configure sensor_pullup_cmd_Pin as input for UART RxD
+      GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+      HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+      result = software_uart_receive(data, 1);
+      response = RESPONSE_ERROR; // for now
+      if (result == HAL_OK) {
+        /* Write flash --------------------------------------------------------------*/
+        // check write command and if write possible
+        if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE))) {
           response = RESPONSE_OK;
-        } else {
-          //response = RESPONSE_ERROR;
+          software_uart_send(&response, 1);
+          // Get data block
+          response = RESPONSE_ERROR;
+          result = software_uart_receive(data, WRITE_BLOCK_SIZE + CRC_SIZE);
+          // Check if transmission is OK and check CRC
+          if (result == HAL_OK) {
+            crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) data, WRITE_BLOCK_SIZE);
+            if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE)) {
+              HAL_FLASH_Unlock();
+              for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4) {
+                result = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, address + cnt, *((uint32_t*) (data + cnt)));
+              } // for (cnt = 0; cnt < WRITE_BLOCK_SIZE; cnt += 4)
+              HAL_FLASH_Lock();
+              if (result == HAL_OK) {
+                address += WRITE_BLOCK_SIZE;
+                response = RESPONSE_OK;
+              } // if (status == HAL_OK)
+            } // if (crc == *(uint32_t*) (data + WRITE_BLOCK_SIZE))
+          } // if (status == HAL_OK)
+        } // if ((data[0] == COMMAND_WRITE) && (address <= (APP_INFO_ADDR - WRITE_BLOCK_SIZE)))
+        /* Erase flash --------------------------------------------------------------*/
+        else if (data[0] == COMMAND_ERASE) {
+          HAL_FLASH_Unlock();
+          result = HAL_FLASHEx_Erase(&erase_init, &page_err);
+          HAL_FLASH_Lock();
+          if (result == HAL_OK) {
+            response = RESPONSE_OK;
+          } else {
+            //response = RESPONSE_ERROR;
+          }
+        } // else if (data[0] == COMMAND_ERASE)
+        /* Read application info block ----------------------------------------------*/
+        else if (data[0] == COMMAND_READ_INFO) {
+          read_p = (uint8_t*) APP_INFO_ADDR;
+          crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) read_p, APP_INFO_SIZE);
+          software_uart_send(read_p, APP_INFO_SIZE);
+          software_uart_send((uint8_t*) &crc, 4);
+        } // else if (data[0] == COMMAND_READ_INFO)
+        /* Read application info block ----------------------------------------------*/
+        else if (data[0] == COMMAND_RUN_APP) {
+          run_application();
+        } // else if (data[0] == COMMAND_RUN_APP)
+        /* Invalid command ----------------------------------------------------------*/
+        else {
+          // response = RESPONSE_ERROR;
         }
-      } // else if (data[0] == COMMAND_ERASE)
-      /* Read application info block ----------------------------------------------*/
-      else if (data[0] == COMMAND_READ_INFO) {
-        read_p = (uint8_t*) APP_INFO_ADDR;
-        crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) read_p, APP_INFO_SIZE);
-        software_uart_send(read_p, APP_INFO_SIZE);
-        software_uart_send((uint8_t*) &crc, 4);
-      } // else if (data[0] == COMMAND_READ_INFO)
-      /* Invalid command ----------------------------------------------------------*/
-      else {
-        //response = RESPONSE_ERROR;
-      }
-      software_uart_send(&response, 1);
-    } // if (result == HAL_OK)
+        software_uart_send(&response, 1);
+      } // if (result == HAL_OK)
+    } // if (adc>=SENSOR_BOOT_THRESHOLD)
+    else { // not if (adc>=SENSOR_BOOT_THRESHOLD)
+      /* Bootloader not detected, go to application -------------------------------*/
+      run_application();
+    } // else { // not if (adc>=SENSOR_BOOT_THRESHOLD)
   } // while (1)
 }
 
@@ -190,27 +232,12 @@ static void MX_ADC_Init(void) {
 
   /**Configure for the selected ADC regular channel to be converted.
    */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
     Error_Handler();
   }
-
-  /**Configure for the selected ADC regular channel to be converted.
-   */
-  sConfig.Channel = ADC_CHANNEL_1;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
-    Error_Handler();
-  }
-
-  /**Configure for the selected ADC regular channel to be converted.
-   */
-  sConfig.Channel = ADC_CHANNEL_3;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
-    Error_Handler();
-  }
-
 }
 
 /* CRC init function */
