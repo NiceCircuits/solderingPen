@@ -114,7 +114,7 @@ int main(void) {
 	/// Previous value of PWM.
 	static int32_t pwm_set_last = 0;
 	/// Proportional gain of regulator - from sensor to heater PWM.
-	volatile int32_t REGULATOR_P = 1024;
+	volatile int32_t REGULATOR_P = 512;
 	/// Integral gain of regulator - from sensor to heater PWM.
 	volatile int32_t REGULATOR_I = 0;
 	/// Derivative gain of regulator - from sensor to heater PWM.
@@ -155,7 +155,7 @@ int main(void) {
 
 	/* USER CODE BEGIN 2 */
 	adc_init();
-	heater_start_pwm();
+	heater_init();
 	led_start_pwm();
 	heater_pwm_state = HEATER_PWM_STATE_OFF_IDLE;
 	status = magnetometer_init();
@@ -254,7 +254,7 @@ int main(void) {
 					current_state = STATE_HIGH_SUPPLY;
 				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
 					current_state = STATE_LOW_SUPPLY;
-				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+				} else if ((tip_state == TIP_HEATER_OPEN) || (tip_state == TIP_SENSOR_OPEN)) {
 					current_state = STATE_ERROR_OPEN_LOAD;
 				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
 					current_state = STATE_ERROR_OVERLOAD;
@@ -297,7 +297,7 @@ int main(void) {
 					current_state = STATE_HIGH_SUPPLY;
 				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
 					current_state = STATE_LOW_SUPPLY;
-				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+				} else if ((tip_state == TIP_HEATER_OPEN) || (tip_state == TIP_SENSOR_OPEN)) {
 					current_state = STATE_ERROR_OPEN_LOAD;
 				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
 					current_state = STATE_ERROR_OVERLOAD;
@@ -310,13 +310,16 @@ int main(void) {
 			case STATE_ERROR_OVERLOAD:
 			case STATE_ERROR_OPEN_LOAD:
 				pwm_set = 0;
-				tip_state = heater_diagnostics(&pwm_set);
+				if (tip_diagnostics_invalid_flag) {
+					pwm_set = HEATER_FB_PWM_MIN;
+					tip_diagnostics_invalid_flag = false;
+				}
 				// --------- Change state if needed. ---------
 				if (adc_get(ADC_VIN_SENSE_HEATER_OFF) > VIN_MAX_LSB) {
 					current_state = STATE_HIGH_SUPPLY;
 				} else if (adc_get(ADC_VIN_SENSE_HEATER_OFF) < VIN_MIN_LSB) {
 					current_state = STATE_LOW_SUPPLY;
-				} else if ((tip_state == TIP_HEATER_OPEN_LOAD) || (tip_state == TIP_SENSOR_OPEN)) {
+				} else if ((tip_state == TIP_HEATER_OPEN) || (tip_state == TIP_SENSOR_OPEN)) {
 					current_state = STATE_ERROR_OPEN_LOAD;
 				} else if ((tip_state == TIP_HEATER_OVERLOAD) || (tip_state == TIP_SENSOR_SHORT)) {
 					current_state = STATE_ERROR_OVERLOAD;

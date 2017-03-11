@@ -21,7 +21,7 @@ typedef enum {
 	/// Overload on heater detected.
 	TIP_HEATER_OVERLOAD,
 	/// Open load on heater detected.
-	TIP_HEATER_OPEN_LOAD,
+	TIP_HEATER_OPEN,
 	/// Short on sensor detected.
 	TIP_SENSOR_SHORT,
 	/// Sensor open detected.
@@ -40,7 +40,7 @@ HAL_StatusTypeDef heater_delay_start(uint16_t delay);
 
 bool heater_delay_elapsed();
 
-HAL_StatusTypeDef heater_start_pwm();
+HAL_StatusTypeDef heater_init();
 
 HAL_StatusTypeDef heater_cmd(uint16_t duty);
 

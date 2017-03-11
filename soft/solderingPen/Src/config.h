@@ -35,7 +35,7 @@ enum {
 	/// Heater delay timer frequency (1 / step time) [Hz]
 	HEATER_DELAY_FREQ = 10000,
 	/// Delay between rising edge of heater PWM (heater on) and ADC conversion in unit of 100us. 1.2 ms - from datasheet.
-	ADC_HEATER_ON_DELAY = HEATER_DELAY_FREQ * 12 / 10000,
+	ADC_HEATER_ON_DELAY = HEATER_DELAY_FREQ * 15 / 10000,
 	/// Delay between falling edge of heater PWM (heater off) and ADC conversion in unit of 100us. 0.7 ms - set experimentally.
 	ADC_HEATER_OFF_DELAY = HEATER_DELAY_FREQ * 7 / 10000,
 };
@@ -101,6 +101,8 @@ enum {
 			* (ADC_HEATER_ON_DELAY + 3 /* add some time for calculations to perform correctly */) / HEATER_DELAY_FREQ,
 	/// Maximum allowed time without correct feedback reading - set to 0.5s
 	HEATER_MAX_TIME_NO_FB = HEATER_PWM_FREQ / 2,
+	/// Maximum allowed time without correct feedback reading for fast diagnostics - set to 0.1s
+	HEATER_MAX_TIME_NO_FB_FAST = HEATER_PWM_FREQ / 10,
 	SENSOR_DIAGNOSTIC_THRESHOLD = 250,
 	// Resistors in power supply measurement circuit.
 	R_VIN_H_KOHM = 100,
@@ -111,6 +113,13 @@ enum {
 	// ADC limits for Vin
 	VIN_MIN_LSB = ADC_FS * VIN_MIN_MV * R_VIN_L_KOHM / (R_VIN_L_KOHM + R_VIN_H_KOHM) / (SUPPLY_VOLTAGE_UV / 1000),
 	VIN_MAX_LSB = ADC_FS * VIN_MAX_MV * R_VIN_L_KOHM / (R_VIN_L_KOHM + R_VIN_H_KOHM) / (SUPPLY_VOLTAGE_UV / 1000),
+	// N and M values for N from M diagnostics
+	SENSOR_OPEN_DIAG_N = 2,
+	SENSOR_OPEN_DIAG_M = 4,
+	HEATER_OVERLOAD_DIAG_N = 2,
+	HEATER_OVERLOAD_DIAG_M = 4,
+	HEATER_OPEN_DIAG_N = 3,
+	HEATER_OPEN_DIAG_M = 8,
 };
 
 //======================= LED settings ========================================

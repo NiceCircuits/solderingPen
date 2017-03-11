@@ -1,11 +1,11 @@
 /**
-  ******************************************************************************
-  * @file    diagnostics.h
-  * @author  piotr@nicecircuits.com
-  * @date    2016-06-11
-  * @brief   
-  ******************************************************************************
-*/
+ ******************************************************************************
+ * @file    diagnostics.h
+ * @author  piotr@nicecircuits.com
+ * @date    2016-06-11
+ * @brief
+ ******************************************************************************
+ */
 #ifndef SRC_DIAGNOSTICS_H_
 #define SRC_DIAGNOSTICS_H_
 
@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 /// Structure holding data for diagnostics_n_from_m function
-typedef struct{
+typedef struct {
 	/// Number of samples needed to be true to give positive result.
 	uint8_t n;
 	/// Total number of samples taken into account.
@@ -24,8 +24,8 @@ typedef struct{
 	uint8_t sum;
 	/// Cyclic buffer holding successive values.
 	bool *buffer;
-}diangostics_n_from_m_data_t;
+} diagnostics_n_from_m_data_t;
 
-bool diagnostics_n_from_m(bool value, diangostics_n_from_m_data_t *config);
+bool diagnostics_n_from_m(bool value, diagnostics_n_from_m_data_t *config);
 
 #endif /* SRC_DIAGNOSTICS_H_ */

@@ -10,6 +10,7 @@
 #include "led.h"
 #include "adc.h"
 #include "debug.h"
+#include "diagnostics.h"
 
 /// Flag set when rising edge on heater PWM occurs.
 volatile bool heater_pwm_rising_edge_flag = 0;
@@ -17,6 +18,30 @@ volatile bool heater_pwm_rising_edge_flag = 0;
 volatile bool heater_pwm_falling_edge_flag = 0;
 /// Is pullup on?
 bool heater_is_pullup_on = false;
+
+/// Buffer for heater open diagnostics.
+bool heater_open_diagnostics_buffer[HEATER_OPEN_DIAG_M];
+/// Data structure for sensor open diagnostics.
+diagnostics_n_from_m_data_t heater_open_diagnostics = { .n = HEATER_OPEN_DIAG_N, .m = HEATER_OPEN_DIAG_M, .head = 0,
+		.sum = 0, .buffer = heater_open_diagnostics_buffer };
+
+/// Buffer for sensor open diagnostics.
+bool heater_overload_diagnostics_buffer[HEATER_OVERLOAD_DIAG_M];
+/// Data structure for sensor open diagnostics.
+diagnostics_n_from_m_data_t heater_overload_diagnostics = { .n = HEATER_OVERLOAD_DIAG_N, .m = HEATER_OVERLOAD_DIAG_M,
+		.head = 0, .sum = 0, .buffer = heater_overload_diagnostics_buffer };
+
+/// Buffer for sensor open diagnostics.
+bool sensor_open_diagnostics_buffer[SENSOR_OPEN_DIAG_M];
+/// Data structure for sensor open diagnostics.
+diagnostics_n_from_m_data_t sensor_open_diagnostics = { .n = SENSOR_OPEN_DIAG_N, .m = SENSOR_OPEN_DIAG_M, .head = 0,
+		.sum = 0, .buffer = sensor_open_diagnostics_buffer };
+
+///// Buffer for sensor short diagnostics.
+//bool sensor_short_diagnostics_buffer[2];
+///// Data structure for sensor open diagnostics.
+//diagnostics_n_from_m_data_t sensor_short_diagnostics = { .n = 1, .m = 2, .head = 0, .sum = 0, .buffer =
+//		&sensor_short_diagnostics_buffer };
 
 /**
  * Function used to generate precise delay needed for starting ADC and magnetometer.
@@ -52,7 +77,7 @@ bool heater_delay_elapsed() {
  * Start heater PWM.
  * @return Status
  */
-HAL_StatusTypeDef heater_start_pwm() {
+HAL_StatusTypeDef heater_init() {
 	HAL_StatusTypeDef result;
 	// Start heater PWM timer.
 	__HAL_TIM_ENABLE_IT(&htim14, TIM_IT_UPDATE);
@@ -98,15 +123,17 @@ tip_state_t heater_diagnostics(bool *tip_diagnostics_invalid_flag, int32_t last_
 	static tip_state_t tip_state_last = TIP_OK;
 	/// Is sensor open?
 	static bool sensor_open = false;
+	/// Is heater open?
+	static bool heater_open = false;
+	/// Is heater overloaded?
+	static bool heater_overload = false;
 
 	if (heater_is_pullup_on) {
 		sensor_pullup_on_value = adc_get(ADC_SENSOR);
 		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
-		if (sensor_pullup_on_value > (sensor_pullup_off_value + SENSOR_DIAGNOSTIC_THRESHOLD)) {
-			sensor_open = true;
-		} else {
-			sensor_open = false;
-		}
+		sensor_open = diagnostics_n_from_m(
+				sensor_pullup_on_value > (sensor_pullup_off_value + SENSOR_DIAGNOSTIC_THRESHOLD),
+				&sensor_open_diagnostics);
 	} else {
 		sensor_pullup_off_value = adc_get(ADC_SENSOR);
 		HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_SET);
@@ -115,17 +142,20 @@ tip_state_t heater_diagnostics(bool *tip_diagnostics_invalid_flag, int32_t last_
 
 	// Check if last PWM duty was long enough for correct feedback reading
 	if (last_pwm_set >= HEATER_FB_PWM_MIN) {
-		heater_open_load_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OPEN_LOAD_COEF_A)
+		heater_open_load_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_ON) * HEATER_OPEN_LOAD_COEF_A)
 				>> HEATER_COEF_BIT_SHIFT) + HEATER_OPEN_LOAD_COEF_B;
-		heater_oveload_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_OFF) * HEATER_OVERLOAD_COEF_A)
+		heater_oveload_limit = (((int32_t) adc_get(ADC_VIN_SENSE_HEATER_ON) * HEATER_OVERLOAD_COEF_A)
 				>> HEATER_COEF_BIT_SHIFT) + HEATER_OVERLOAD_COEF_B;
-		if (adc_get(ADC_DRIVER_FB) < heater_open_load_limit) {
+		heater_overload = diagnostics_n_from_m(adc_get(ADC_DRIVER_FB) > heater_oveload_limit,
+				&heater_overload_diagnostics);
+		heater_open = diagnostics_n_from_m(adc_get(ADC_DRIVER_FB) < heater_open_load_limit, &heater_open_diagnostics);
+		if (heater_open) {
 			if (sensor_open) {
 				tip_state = TIP_DISCONNECTED;
 			} else {
-				tip_state = TIP_HEATER_OPEN_LOAD;
+				tip_state = TIP_HEATER_OPEN;
 			}
-		} else if (adc_get(ADC_DRIVER_FB) > heater_oveload_limit) {
+		} else if (heater_overload) {
 			tip_state = TIP_HEATER_OVERLOAD;
 		} else {
 			if (sensor_open) {
@@ -136,7 +166,14 @@ tip_state_t heater_diagnostics(bool *tip_diagnostics_invalid_flag, int32_t last_
 		}
 		heater_no_fb_cnt = 0; // Reset no feedback counter.
 	} else {
+		// Count times when no correct diagnostics is possible and set flag if it's too long.
 		heater_no_fb_cnt++;
+		// If overload diagnostics found some samples or if tip is disconnected, shorten the time to next diagnostics.
+		if (((heater_overload_diagnostics.sum > 0) || (tip_state_last == TIP_DISCONNECTED)
+				|| (tip_state_last == TIP_HEATER_OPEN) || (tip_state_last == TIP_HEATER_OPEN))
+				&& (heater_no_fb_cnt < (HEATER_MAX_TIME_NO_FB - HEATER_MAX_TIME_NO_FB_FAST))) {
+			heater_no_fb_cnt = HEATER_MAX_TIME_NO_FB - HEATER_MAX_TIME_NO_FB_FAST;
+		}
 		if (heater_no_fb_cnt >= HEATER_MAX_TIME_NO_FB) {
 			heater_no_fb_cnt = 0;
 			*tip_diagnostics_invalid_flag = true;
