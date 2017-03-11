@@ -21,6 +21,8 @@
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
 CRC_HandleTypeDef hcrc;
+typedef void (*pFunction)(void);
+extern pFunction jump_to_application;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -29,11 +31,22 @@ static void MX_GPIO_Init(void);
 static void MX_ADC_Init(void);
 static void MX_CRC_Init(void);
 /// Start application
-void run_application();
+HAL_StatusTypeDef run_application();
 
 /* Private function bodies ---------------------------------------------------*/
-void run_application() {
-// TODO
+HAL_StatusTypeDef run_application() {
+  // Check if first byte (top of stack pointer) of user flash is OK
+  if (((*(__IO uint32_t*) APP_START_ADDR) & 0x2FFE0000) == 0x20000000) {
+    // Load reset vector from application Flash
+    jump_to_application = (pFunction) (*(__IO uint32_t*) (APP_START_ADDR + 4));
+    // Load stack pointer from application Flash
+    __set_MSP(*(__IO uint32_t*) APP_START_ADDR);
+    jump_to_application();
+  } else {
+    // Valid application not loaded
+  }
+  // Function shall never return
+  return HAL_ERROR;
 }
 
 int main(void) {
@@ -138,6 +151,7 @@ int main(void) {
         } // else if (data[0] == COMMAND_ERASE)
         /* Read application info block ----------------------------------------------*/
         else if (data[0] == COMMAND_READ_INFO) {
+          // TODO read chip ID and type
           read_p = (uint8_t*) APP_INFO_ADDR;
           crc = HAL_CRC_Calculate(&hcrc, (uint32_t*) read_p, APP_INFO_SIZE);
           software_uart_send(read_p, APP_INFO_SIZE);
@@ -146,6 +160,7 @@ int main(void) {
         /* Read application info block ----------------------------------------------*/
         else if (data[0] == COMMAND_RUN_APP) {
           run_application();
+          // if function returns, return error
         } // else if (data[0] == COMMAND_RUN_APP)
         /* Invalid command ----------------------------------------------------------*/
         else {
