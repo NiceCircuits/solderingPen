@@ -16,9 +16,10 @@ class bootloader:
     serial = None
     file = None
     crc_fun=None
-    COMMAND_ERASE = b'e'
-    COMMAND_WRITE = b'w'
-    COMMAND_INFO = b'i'
+    COMMAND_ERASE = b'\x81'
+    COMMAND_WRITE = b'\x82'
+    COMMAND_INFO = b'\x84'
+    COMMAND_RUN_APP = b'\x88'
     RESPONSE_OK = b'o'
     RESPONSE_ERROR = b'e'
     WRITE_BLOCK_SIZE = 128

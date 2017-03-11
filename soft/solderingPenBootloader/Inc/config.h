@@ -53,7 +53,7 @@
 
 /// Bootloader commands
 enum {
-  COMMAND_ERASE = 'e', COMMAND_WRITE = 'w', COMMAND_READ_INFO = 'i', COMMAND_RUN_APP = 'r'
+  COMMAND_ERASE = 0x81, COMMAND_WRITE = 0x82, COMMAND_READ_INFO = 0x84, COMMAND_RUN_APP = 0x88
 };
 /// Bootloader responses
 enum {
