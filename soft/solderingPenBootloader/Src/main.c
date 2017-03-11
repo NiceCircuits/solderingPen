@@ -22,7 +22,7 @@ ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
 CRC_HandleTypeDef hcrc;
 typedef void (*pFunction)(void);
-extern pFunction jump_to_application;
+pFunction jump_to_application;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -42,15 +42,13 @@ HAL_StatusTypeDef run_application() {
     // Load stack pointer from application Flash
     __set_MSP(*(__IO uint32_t*) APP_START_ADDR);
     jump_to_application();
-  } else {
-    // Valid application not loaded
-  }
+  } // if (((*(__IO uint32_t*) APP_START_ADDR) & 0x2FFE0000) == 0x20000000)
   // Function shall never return
   return HAL_ERROR;
 }
 
 int main(void) {
-
+// TODO: LED
   /* MCU Configuration----------------------------------------------------------*/
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();

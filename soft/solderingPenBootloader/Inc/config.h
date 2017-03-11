@@ -38,8 +38,8 @@
 #define UART_BAUDRATE  1200
 /// Timeout for UART reception
 #define UART_TIMEOUT_MS 2000
-/// Address of first byte of application
-#define APP_START_ADDR 0x08003000
+/// Address of first byte of application (reserve 16kB for bootloader TODO: optimize)
+#define APP_START_ADDR 0x08004000
 /// Size of application info block
 #define APP_INFO_SIZE 1024
 /// Address of application info block in Flash
