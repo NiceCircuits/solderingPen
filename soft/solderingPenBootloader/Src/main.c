@@ -41,10 +41,11 @@ HAL_StatusTypeDef run_application() {
   // Check if first byte (top of stack pointer) of user flash is OK
   if (((*(__IO uint32_t*) APP_START_ADDR) & 0x2FFE0000) == 0x20000000) {
     // Deinitialize used peripherals
-    HAL_ADC_DeInit(&hadc);
-    HAL_CRC_DeInit(&hcrc);
     led_deinit();
     software_uart_deinit();
+    HAL_ADC_DeInit(&hadc);
+    HAL_CRC_DeInit(&hcrc);
+    HAL_DeInit();
     // Load reset vector from application Flash
     jump_to_application = (pFunction) (*(__IO uint32_t*) (APP_START_ADDR + 4));
     // Load stack pointer from application Flash
