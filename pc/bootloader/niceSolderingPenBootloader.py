@@ -23,62 +23,80 @@ class bootloader:
     RESPONSE_OK = b'o'
     RESPONSE_ERROR = b'e'
     WRITE_BLOCK_SIZE = 128
-    WRITE_BLOCK_COUNT = 160
+    WRITE_BLOCK_COUNT = 128
     APP_INFO_SIZE=1024
     CRC_SIZE = 4
     RETRY_NUMBER = 4
+    # timeout big enough for erase cycle
+    TIMEOUT_S = 2
     
     def read_info(self):
-        print("Reading application info...")
+        length = self.APP_INFO_SIZE+self.CRC_SIZE
+        time.sleep(0.15)
         for i in range(self.RETRY_NUMBER):
+            print("Reading application info...")
+            self.serial.flush()
             self.serial.write(self.COMMAND_INFO)
-            data=self.serial.read(self.APP_INFO_SIZE+4)
-            crc_data=int.from_bytes(data[self.APP_INFO_SIZE:(self.APP_INFO_SIZE+4)],'little')
-            data=data[0:self.APP_INFO_SIZE]
-            crc=self.crc_fun(data)
-            if crc_data==crc:
-                print(data)
-                break
-    
-    def read_logs(self):
-        pass
-    
-    def read_app(self):
-        pass
-    
+            data=self.serial.read(length)
+            if len(data)== length:
+                crc_data=int.from_bytes(data[self.APP_INFO_SIZE:(length)],\
+                    'little')
+                data=data[0:self.APP_INFO_SIZE]
+                crc=self.crc_fun(data)
+                if crc_data==crc:
+                    print(data)
+                    break
+        
     def write_app(self):
-        print("Writing flash...")
-        t_start = time.time()
-        cnt=0
-        for i in range(self.WRITE_BLOCK_COUNT):
-            self.serial.write(self.COMMAND_WRITE)
-            response=self.serial.read(1)
-            if response==self.RESPONSE_OK:
-                data=bytearray([cnt,cnt,cnt,cnt]*32)
-                cnt=cnt+1
-                self.serial.write(data+self.crc_fun(data).to_bytes(4,'little'))
-                response=self.serial.read(1)
-                if response==self.RESPONSE_OK:
-                    print("%1.1f%%" % ((i+1)/self.WRITE_BLOCK_COUNT*100),end="\r")
-                else:
-                    print("Write error")
-            else:
-                print("Write error")
-        print("Elapsed %1.1fs" % (time.time()-t_start))
+        if self.file:
+            print("Writing flash...")
+            t_start = time.time()
+            for cnt in range(self.WRITE_BLOCK_COUNT):
+                data=self.file.read(self.WRITE_BLOCK_SIZE)
+                if len(data)==0:
+                    break
+                elif len(data)<self.WRITE_BLOCK_SIZE:
+                    # Fill remaining block area
+                    data=data + b'\xFF'*(self.WRITE_BLOCK_SIZE-len(data))
+                err=self.RESPONSE_OK
+                for i in range(self.RETRY_NUMBER):
+                    time.sleep(0.15)
+                    self.serial.write(self.COMMAND_WRITE)
+                    response=self.serial.read(1)
+                    if response==self.RESPONSE_OK:
+                        self.serial.write(data+self.crc_fun(data).to_bytes(4,'little'))
+                        response=self.serial.read(1)
+                        if response==self.RESPONSE_OK:
+                            print("%1.1f%%" % ((cnt+1)/self.WRITE_BLOCK_COUNT*100),end="\r")
+                            err=self.RESPONSE_OK
+                            break
+                        else:
+                            err=response[0]
+                if err!=self.RESPONSE_OK:
+                    print("Write error 0x%X" % response[0])
+                    break
+            print("Elapsed %1.1fs" % (time.time()-t_start))
+        else:
+            print("No file to write")
         
     
     def erase_app(self):
-        self.serial.write(self.COMMAND_ERASE)
-        response=self.serial.read(1)
-        if response==self.RESPONSE_OK:
-            print("Chip erased")
-        else:
-            print("Erase error")
+        for cnt in range(self.WRITE_BLOCK_COUNT):
+            time.sleep(0.15)
+            self.serial.write(self.COMMAND_ERASE)
+            response=self.serial.read(1)
+            if response==self.RESPONSE_OK:
+                print("Chip erased")
+                return
+        print("Erase error 0x%X" % response[0])
+
+    def run_app(self):
+        self.serial.write(self.COMMAND_RUN_APP)
 
     def __init__(self, serial_name, file_name):
         self.crc_fun=crcmod.mkCrcFun(0x104C11DB7, 0xFFFFFFFF, rev=False)
         try:
-            self.serial = serial.Serial(serial_name, 1200)
+            self.serial = serial.Serial(serial_name, 1200, inter_byte_timeout=self.TIMEOUT_S)
         except serial.SerialException:
             error("Cannot open COM port " + serial_name)
         print("Open serial port " + self.serial.name)
@@ -96,7 +114,7 @@ class bootloader:
             self.serial.close()
 
 if __name__ == "__main__":
-    if 0:
+    if 1:
         if len(sys.argv) < 2:
             error("The folowing arguments are required: com_name")
         else:
@@ -109,6 +127,7 @@ if __name__ == "__main__":
             bld.read_info()
             bld.erase_app()
             bld.write_app()
+            bld.run_app()
     else:
         serial_name="COM45"
         bld = bootloader(serial_name, "")

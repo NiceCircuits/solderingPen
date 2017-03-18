@@ -37,4 +37,10 @@ HAL_StatusTypeDef software_uart_send(uint8_t *data, size_t length);
  */
 HAL_StatusTypeDef software_uart_receive(uint8_t *data, size_t length);
 
+/**
+ * Deinitialize software UART
+ * @return status
+ */
+HAL_StatusTypeDef software_uart_deinit();
+
 #endif /* SOFTWARE_UART_H_ */

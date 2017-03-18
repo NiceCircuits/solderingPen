@@ -115,8 +115,6 @@ void HAL_SYSTICK_Callback() {
 /* Public function definitions ********************************************** */
 
 HAL_StatusTypeDef software_uart_init() {
-  /* TIM14 init function */
-
   htim14.Instance = DELAY_TIMER;
   htim14.Init.Prescaler = 0;
   htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -130,6 +128,10 @@ HAL_StatusTypeDef software_uart_init() {
     Error_Handler();
   }
   return HAL_OK;
+}
+
+HAL_StatusTypeDef software_uart_deinit() {
+  return HAL_TIM_Base_DeInit(&htim14);
 }
 
 HAL_StatusTypeDef software_uart_send(uint8_t *data, size_t length) {

@@ -24,6 +24,12 @@ enum {
 HAL_StatusTypeDef led_init();
 
 /**
+ * Deinitialize LED driver
+ * @return status
+ */
+HAL_StatusTypeDef led_deinit();
+
+/**
  * Set PWM duty for RGB LED.
  * @param r Duty for red LED, 0 to LED_PWM_MAX.
  * @param g Duty for green LED, 0 to LED_PWM_MAX.

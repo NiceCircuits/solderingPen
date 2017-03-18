@@ -56,6 +56,10 @@ HAL_StatusTypeDef led_init() {
   return status;
 }
 
+HAL_StatusTypeDef led_deinit() {
+  return HAL_TIM_PWM_DeInit(&htim3);
+}
+
 HAL_StatusTypeDef led_cmd(uint16_t r, uint16_t g, uint16_t b) {
   htim3.Instance->CCR1 = r;
   htim3.Instance->CCR2 = g;
