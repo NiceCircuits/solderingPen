@@ -19,15 +19,13 @@ enum {
 
 /**
  * Start RGB LED PWM timer.
- * @return Status.
  */
-HAL_StatusTypeDef led_init();
+void led_init();
 
 /**
  * Deinitialize LED driver
- * @return status
  */
-HAL_StatusTypeDef led_deinit();
+void led_deinit();
 
 /**
  * Set PWM duty for RGB LED.
