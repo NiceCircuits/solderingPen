@@ -62,3 +62,5 @@
 /soft/solderingPenBootloader/Debug
 /*.bak
 /soft/solderingPenBootloader/Release
+/soft/bootloader_test_app_to_load/Release
+/soft/bootloader_test_app_to_load/Debug
