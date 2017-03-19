@@ -15,24 +15,19 @@ void led_init() {
   ;
 
   /* Init the base time for the PWM */
-  {
-    TIM3->CR1 = TIM_COUNTERMODE_UP | TIM_CLOCKDIVISION_DIV1;
-    /* Set the Autoreload value */
-    TIM3->ARR = (uint32_t) 65535;
-    /* Set the Prescaler value */
-    TIM3->PSC = (uint32_t) 0;
-    /* Generate an update event to reload the Prescaler
-     and the repetition counter(only for TIM1 and TIM8) value immediatly */
-    TIM3->EGR = TIM_EGR_UG;
-  }
+  TIM3->CR1 = TIM_COUNTERMODE_UP | TIM_CLOCKDIVISION_DIV1;
+  /* Set the Autoreload value */
+  TIM3->ARR = (uint32_t) 65535;
+  /* Set the Prescaler value */
+  TIM3->PSC = (uint32_t) 0;
+  /* Generate an update event to reload the Prescaler
+   and the repetition counter(only for TIM1 and TIM8) value immediatly */
+  TIM3->EGR = TIM_EGR_UG;
 
-  {
-    /* Reset the MMS Bits */
-    TIM3->CR2 = TIM_TRGO_RESET;
-    /* Set or Reset the MSM Bit */
-    TIM3->SMCR = TIM_MASTERSLAVEMODE_DISABLE;
-
-  }
+  /* Reset the MMS Bits */
+  TIM3->CR2 = TIM_TRGO_RESET;
+  /* Set or Reset the MSM Bit */
+  TIM3->SMCR = TIM_MASTERSLAVEMODE_DISABLE;
 
   // Configure PWM channels
   TIM3->CCMR1 =
@@ -51,30 +46,28 @@ void led_init() {
   | (TIM_OCMODE_PWM2 << 8) /* PWM mode 2 */
   | TIM_CCMR2_OC4PE; /* Enable preload */
 
-  {
+  // TODO: optimize
+  GPIO_InitTypeDef GPIO_InitStruct;
 
-    GPIO_InitTypeDef GPIO_InitStruct;
+  /**TIM3 GPIO Configuration
+   PA6     ------> TIM3_CH1
+   PA7     ------> TIM3_CH2
+   PB1     ------> TIM3_CH4
+   */
+  GPIO_InitStruct.Pin = led_R_cmd_Pin | led_G_cmd_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /**TIM3 GPIO Configuration
-     PA6     ------> TIM3_CH1
-     PA7     ------> TIM3_CH2
-     PB1     ------> TIM3_CH4
-     */
-    GPIO_InitStruct.Pin = led_R_cmd_Pin | led_G_cmd_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = led_B_cmd_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
+  HAL_GPIO_Init(led_B_cmd_GPIO_Port, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = led_B_cmd_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
-    HAL_GPIO_Init(led_B_cmd_GPIO_Port, &GPIO_InitStruct);
-
-  }
   /* Enable the Capture compare channels */
   TIM3->CCER = (TIM_CCx_ENABLE << TIM_CHANNEL_1) | (TIM_CCx_ENABLE << TIM_CHANNEL_2)
       | (TIM_CCx_ENABLE << TIM_CHANNEL_4);
