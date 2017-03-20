@@ -18,8 +18,6 @@
 #include "led.h"
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc;
-DMA_HandleTypeDef hdma_adc;
 CRC_HandleTypeDef hcrc;
 typedef void (*pFunction)(void);
 pFunction jump_to_application;
@@ -43,7 +41,20 @@ HAL_StatusTypeDef run_application() {
     // Deinitialize used peripherals
     led_deinit();
     software_uart_deinit();
-    HAL_ADC_DeInit(&hadc);
+    // HAL_ADC_DeInit(&hadc);
+    // TODO: extracto to separate file
+    /* Reset register ISR */
+    ADC1->ISR = (ADC_FLAG_AWD | ADC_FLAG_OVR | ADC_FLAG_EOS | ADC_FLAG_EOC | ADC_FLAG_EOSMP | ADC_FLAG_RDY);
+    /* Reset register CFGR1 */
+    ADC1->CFGR1 = 0;
+    /* Reset register CFGR2 */
+    ADC1->CFGR2 = 0;
+    /* Reset register SMPR */
+    ADC1->SMPR = 0;
+    /* Reset register CHSELR */
+    ADC1->CHSELR = 0;
+    /* Reset register CCR */
+    __HAL_RCC_ADC1_CLK_DISABLE();
     HAL_CRC_DeInit(&hcrc);
     HAL_DeInit();
     // Load reset vector from application Flash
@@ -52,7 +63,7 @@ HAL_StatusTypeDef run_application() {
     __set_MSP(*(__IO uint32_t*) APP_START_ADDR);
     jump_to_application();
   } // if (((*(__IO uint32_t*) APP_START_ADDR) & 0x2FFE0000) == 0x20000000)
-  // Function shall never return
+// Function shall never return
   return HAL_ERROR;
 }
 
@@ -72,26 +83,26 @@ int main(void) {
   led_init();
   software_uart_init();
 
-  /// Bootloader data buffer
+/// Bootloader data buffer
   uint8_t data[WRITE_BLOCK_SIZE + CRC_SIZE];
-  /// Address to save data in Flash
+/// Address to save data in Flash
   uint32_t address = APP_START_ADDR;
-  /// Result of operations
+/// Result of operations
   HAL_StatusTypeDef result;
-  /// Error information for erase operation
+/// Error information for erase operation
   uint32_t page_err;
-  /// Default counter
+/// Default counter
   uint32_t cnt;
-  /// Calculated CRC value
+/// Calculated CRC value
   uint32_t crc;
-  /// Status to return to UART
+/// Status to return to UART
   uint8_t response;
-  /// Pointer to data to be read
+/// Pointer to data to be read
   uint8_t* read_p;
-  /// Value from ADC
+/// Value from ADC
   uint32_t adc;
 
-  /// Initialization structure for Flash erase
+/// Initialization structure for Flash erase
   FLASH_EraseInitTypeDef erase_init = { .TypeErase = FLASH_TYPEERASE_PAGES, .PageAddress = APP_START_ADDR, .NbPages =
       (FLASH_BANK1_END + 1 - APP_START_ADDR) / FLASH_PAGE_SIZE };
 
@@ -102,9 +113,21 @@ int main(void) {
     sensor_pullup_cmd_GPIO_Port->MODER |= GPIO_MODER_MODER2_0; // Set sensor_pullup_cmd_Pin as output
     // delay a bit and read ADC from sensor_sig_Pin
     HAL_Delay(100);
-    HAL_ADC_Start(&hadc);
-    HAL_ADC_PollForConversion(&hadc, 100);
-    adc = HAL_ADC_GetValue(&hadc);
+    {
+      /* Perform ADC enable and conversion start if no conversion is on going */
+      if (((ADC1->CR) & ADC_CR_ADSTART) == 0) {
+
+        /* Clear regular group conversion flag and overrun flag */
+        ADC1->ISR = (ADC_FLAG_EOC | ADC_FLAG_EOS | ADC_FLAG_OVR); // Clear bits by writing one
+
+        ADC1->CR |= ADC_CR_ADSTART;
+
+      }
+    }
+    /* Wait until End of Conversion flag is raised */
+    while (HAL_IS_BIT_CLR(ADC1->ISR, (ADC_FLAG_EOC | ADC_FLAG_EOS))) {
+    }
+    adc = ADC1->DR;
     // If voltage on sensor_sig pin is above threshold, start bootloader
     if (adc >= SENSOR_BOOT_THRESHOLD) {
       led_cmd(0, 0, 2000);
@@ -232,34 +255,23 @@ void SystemClock_Config(void) {
 /* ADC init function */
 static void MX_ADC_Init(void) {
 
-  ADC_ChannelConfTypeDef sConfig;
+  __HAL_RCC_ADC1_CLK_ENABLE()
+        ; /* Peripheral clock enable */
+// TODO: merge all clock enables
 
-  /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-   */
-  hadc.Instance = ADC1;
-  hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
-  hadc.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
-  hadc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
-  hadc.Init.LowPowerAutoWait = DISABLE;
-  hadc.Init.LowPowerAutoPowerOff = DISABLE;
-  hadc.Init.ContinuousConvMode = DISABLE;
-  hadc.Init.DiscontinuousConvMode = DISABLE;
-  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc.Init.DMAContinuousRequests = DISABLE;
-  hadc.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
-  if (HAL_ADC_Init(&hadc) != HAL_OK) {
-    Error_Handler();
-  }
+  ADC1->CFGR1 = ADC_RESOLUTION_12B
+      | ADC_DATAALIGN_RIGHT;
 
-  /**Configure for the selected ADC regular channel to be converted.
-   */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
-  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
-  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
-    Error_Handler();
+  ADC1->CFGR2 = ADC_CLOCK_ASYNC_DIV1; // (Asynchronous clock mode), generated at product level, no divider
+  ADC1->SMPR = ADC_SAMPLETIME_71CYCLES_5;  // Channel sampling time configuration
+  ADC1->CHSELR = ADC_CHSELR_CHSEL3; // Select active channel
+
+  /* Enable the ADC peripheral */
+  ADC1->CR |= ADC_CR_ADEN;
+
+  /* Wait for ADC effectively enabled */
+  while (((ADC1->ISR) & ADC_FLAG_RDY) == 0)
+  {
   }
 }
 
@@ -288,14 +300,14 @@ static void MX_CRC_Init(void) {
  * the Code Generation settings)
  */
 static void MX_GPIO_Init(void) {
-  // GPIO Ports Clock Enable: GPIOA,B,F
+// GPIO Ports Clock Enable: GPIOA,B,F
   __IO uint32_t tmpreg;
   RCC->AHBENR |= RCC_AHBENR_GPIOFEN | RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN;
-  // Delay after an RCC peripheral clock enabling
+// Delay after an RCC peripheral clock enabling
   tmpreg = READ_BIT(RCC->AHBENR, RCC_AHBENR_GPIOFEN);
   UNUSED(tmpreg);
 
-  // Configure GPIOA port
+// Configure GPIOA port
   GPIOA->MODER = 0xFFFFFFFF
       // All pins in Analog input mode, except:
       & (~GPIO_MODER_MODER2_1) // sensor_pullup_cmd_Pin - output
@@ -314,13 +326,13 @@ static void MX_GPIO_Init(void) {
       (GPIO_AF1_TIM3 << (4 * 6)) // led_R_cmd_Pin (6) - alternate function: TIM3
       | (GPIO_AF1_TIM3 << (4 * 7));  // led_G_cmd_Pin (7) - alternate function: TIM3
 
-  // Configure GPIOB port
+// Configure GPIOB port
   GPIOB->MODER = 0xFFFFFFFF
       // All pins in Analog input mode, except:
       & (~GPIO_MODER_MODER1_0); // led_B_cmd_Pin - alternate function
   GPIOB->AFR[0] = (GPIO_AF1_TIM3 << (4 * 1)); // led_B_cmd_Pin (1) - alternate function: TIM3
 
-  // Configure GPIOF port
+// Configure GPIOF port
   GPIOF->MODER = 0xFFFFFFFF; // All pins in Analog input mode
 }
 
