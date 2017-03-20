@@ -88,8 +88,6 @@ int main(void) {
   uint8_t response;
   /// Pointer to data to be read
   uint8_t* read_p;
-  /// Initialization data for GPIO
-  GPIO_InitTypeDef GPIO_InitStruct;
   /// Value from ADC
   uint32_t adc;
 
@@ -97,19 +95,11 @@ int main(void) {
   FLASH_EraseInitTypeDef erase_init = { .TypeErase = FLASH_TYPEERASE_PAGES, .PageAddress = APP_START_ADDR, .NbPages =
       (FLASH_BANK1_END + 1 - APP_START_ADDR) / FLASH_PAGE_SIZE };
 
-  // Save init values to structure
-  GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-
   /* Main loop-----------------------------------------------------------------*/
   while (1) {
     led_cmd(2000, 0, 0);
     /* Check if bootloader cable is connected -----------------------------------*/
-    // Config sensor_pullup_cmd_Pin as output and set it low
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    HAL_GPIO_Init(sensor_pullup_cmd_GPIO_Port, &GPIO_InitStruct);
-    HAL_GPIO_WritePin(sensor_pullup_cmd_GPIO_Port, sensor_pullup_cmd_Pin, GPIO_PIN_RESET);
+    sensor_pullup_cmd_GPIO_Port->MODER |= GPIO_MODER_MODER2_0; // Set sensor_pullup_cmd_Pin as output
     // delay a bit and read ADC from sensor_sig_Pin
     HAL_Delay(100);
     HAL_ADC_Start(&hadc);
@@ -119,8 +109,7 @@ int main(void) {
     if (adc >= SENSOR_BOOT_THRESHOLD) {
       led_cmd(0, 0, 2000);
       // Configure sensor_pullup_cmd_Pin as input for UART RxD
-      GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-      HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+      sensor_pullup_cmd_GPIO_Port->MODER &= (~GPIO_MODER_MODER2_0);
       while (1) {
         result = software_uart_receive(data, 1);
         if (result == HAL_OK) {
@@ -299,39 +288,40 @@ static void MX_CRC_Init(void) {
  * the Code Generation settings)
  */
 static void MX_GPIO_Init(void) {
+  // GPIO Ports Clock Enable: GPIOA,B,F
+  __IO uint32_t tmpreg;
+  RCC->AHBENR |= RCC_AHBENR_GPIOFEN | RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN;
+  // Delay after an RCC peripheral clock enabling
+  tmpreg = READ_BIT(RCC->AHBENR, RCC_AHBENR_GPIOFEN);
+  UNUSED(tmpreg);
 
-  GPIO_InitTypeDef GPIO_InitStruct;
+  // Configure GPIOA port
+  GPIOA->MODER = 0xFFFFFFFF
+      // All pins in Analog input mode, except:
+      & (~GPIO_MODER_MODER2_1) // sensor_pullup_cmd_Pin - output
+      & (~GPIO_MODER_MODER4_1) // driver_cmd_Pin - output
+      & (~GPIO_MODER_MODER6_0) // led_R_cmd_Pin - alternate function
+      & (~GPIO_MODER_MODER7_0) // led_G_cmd_Pin - alternate function
+      & (~GPIO_MODER_MODER13_0) // SWDIO - alternate function
+      & (~GPIO_MODER_MODER14_0); // SWDCLK - alternate function
+#if 0
+      GPIOA->OTYPER=0; // All outputs open drain
+      GPIOA->OSPEEDR=0;// All outputs low speed
+      GPIOA->PUPDR=0;
+      GPIOA->ODR=0;
+#endif
+  GPIOA->AFR[0] =
+      (GPIO_AF1_TIM3 << (4 * 6)) // led_R_cmd_Pin (6) - alternate function: TIM3
+      | (GPIO_AF1_TIM3 << (4 * 7));  // led_G_cmd_Pin (7) - alternate function: TIM3
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOF_CLK_ENABLE()
-  ;
-  __HAL_RCC_GPIOA_CLK_ENABLE()
-  ;
-  __HAL_RCC_GPIOB_CLK_ENABLE()
-  ;
+  // Configure GPIOB port
+  GPIOB->MODER = 0xFFFFFFFF
+      // All pins in Analog input mode, except:
+      & (~GPIO_MODER_MODER1_0); // led_B_cmd_Pin - alternate function
+  GPIOB->AFR[0] = (GPIO_AF1_TIM3 << (4 * 1)); // led_B_cmd_Pin (1) - alternate function: TIM3
 
-  /*Configure GPIO pins : PF0 PF1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : sensor_pullup_cmd_Pin driver_cmd_Pin */
-  GPIO_InitStruct.Pin = sensor_pullup_cmd_Pin | driver_cmd_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PA5 PA9 PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_9 | GPIO_PIN_10;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, sensor_pullup_cmd_Pin | driver_cmd_Pin, GPIO_PIN_RESET);
-
+  // Configure GPIOF port
+  GPIOF->MODER = 0xFFFFFFFF; // All pins in Analog input mode
 }
 
 /**

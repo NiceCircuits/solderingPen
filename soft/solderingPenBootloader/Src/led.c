@@ -12,7 +12,7 @@
 void led_init() {
   /* Init the low level hardware : GPIO, CLOCK, NVIC and DMA */
   __HAL_RCC_TIM3_CLK_ENABLE()
-  ;
+        ;
 
   /* Init the base time for the PWM */
   TIM3->CR1 = TIM_COUNTERMODE_UP | TIM_CLOCKDIVISION_DIV1;
@@ -31,42 +31,14 @@ void led_init() {
 
   // Configure PWM channels
   TIM3->CCMR1 =
-  /* config for channel 1 */
-  TIM_OCMODE_PWM2 /* PWM mode 2 */
-  | TIM_CCMR1_OC1PE /* Enable preload */
-  /* config for channel 2 */
-  | (TIM_OCMODE_PWM2 << 8) /* PWM mode 2 */
-  | TIM_CCMR1_OC2PE; /* Enable preload */
+      (TIM_OCMODE_PWM2) // PWM mode 2 for channel 1
+      | TIM_CCMR1_OC1PE // Enable preload for channel 1
+          | (TIM_OCMODE_PWM2 << 8) // PWM mode 2 for channel 2
+          | TIM_CCMR1_OC2PE; // Enable preload for channel 2
 
   TIM3->CCMR2 =
-  /* config for channel 3 */
-  TIM_OCMODE_PWM2 /* PWM mode 2 */
-  | TIM_CCMR2_OC3PE /* Enable preload */
-  /* config for channel 2 */
-  | (TIM_OCMODE_PWM2 << 8) /* PWM mode 2 */
-  | TIM_CCMR2_OC4PE; /* Enable preload */
-
-  // TODO: optimize
-  GPIO_InitTypeDef GPIO_InitStruct;
-
-  /**TIM3 GPIO Configuration
-   PA6     ------> TIM3_CH1
-   PA7     ------> TIM3_CH2
-   PB1     ------> TIM3_CH4
-   */
-  GPIO_InitStruct.Pin = led_R_cmd_Pin | led_G_cmd_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  GPIO_InitStruct.Pin = led_B_cmd_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF1_TIM3;
-  HAL_GPIO_Init(led_B_cmd_GPIO_Port, &GPIO_InitStruct);
+      (TIM_OCMODE_PWM2 << 8) // PWM mode 2 for channel 4
+      | TIM_CCMR2_OC4PE; // Enable preload for channel 4
 
   /* Enable the Capture compare channels */
   TIM3->CCER = (TIM_CCx_ENABLE << TIM_CHANNEL_1) | (TIM_CCx_ENABLE << TIM_CHANNEL_2)
